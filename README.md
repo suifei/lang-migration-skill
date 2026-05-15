@@ -24,6 +24,8 @@
 [![Anti-Cheating](https://img.shields.io/badge/Anti--Cheating-Protocol_Enforced-red)](#the-evidence-obligation-protocol)
 [![Works With](https://img.shields.io/badge/Works_With-Claude_Code_|_Cursor_|_Copilot_|_OpenCode-purple)](#runtime-environments)
 
+**English | [中文](README.zh-CN.md)**
+
 *Migrate any open-source codebase across programming languages — with structural fidelity,
 persistent state, and verifiable proof that the AI actually did the work.*
 
