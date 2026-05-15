@@ -211,3 +211,22 @@ After all source files are translated, write the target's dependency manifest:
 - Add the target language's standard toolchain requirements
 - Pin versions (use the most recent stable version as of the migration date)
 - Record the manifest path in `migration-state.yaml`
+
+---
+
+## Phase Exit: Trigger PGR-4
+
+When you believe P4 is complete, do NOT mark it DONE yet.
+
+Load `references/phase-gate-review.md` and run PGR-4 using the audit criteria defined there.
+Only set `phases.P4_translation: DONE` after PGR-4 passes with zero findings.
+
+The PGR-4 loop will:
+1. Verify every translate-strategy asset has a corresponding target file on disk
+2. Verify every ipo-registry entry with `translation_status: DONE` has non-empty `target_lines`
+3. Verify all retrospective entries with `ecosystem_map_update_required: true` have been applied to `ecosystem-map.yaml`
+4. Verify the Retrospective Checklist Summary has been output in the session response
+5. Run the target language build command (`go build ./...`, `cargo build`, etc.) and verify clean exit
+6. Fix any findings autonomously and re-audit from scratch until zero findings remain
+
+`phases.P4_translation: DONE` is set by PGR-4 as its final action — never set it directly.

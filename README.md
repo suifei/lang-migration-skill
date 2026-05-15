@@ -24,22 +24,18 @@
 [![Anti-Cheating](https://img.shields.io/badge/Anti--Cheating-Protocol_Enforced-red)](#the-evidence-obligation-protocol)
 [![Works With](https://img.shields.io/badge/Works_With-Claude_Code_|_Cursor_|_Copilot_|_OpenCode-purple)](#runtime-environments)
 [![ClawHub](https://clawhub.ai/favicon.ico)](https://clawhub.ai/suifei/lang-migration)
-[![Version: 1.1](https://img.shields.io/badge/Version-1.1-blue)](#retrospective-integration-v11)
+[![Version: 1.2](https://img.shields.io/badge/Version-1.2-blue)](#phase-gate-review-pgr--v12)
 
 **English | [中文](README.zh-CN.md)**
 
 *Migrate any open-source codebase across programming languages — with structural fidelity,
 persistent state, and verifiable proof that the AI actually did the work.*
 
-<div align="center">
+### ✨ **NEW in v1.2: Phase Gate Review (PGR)**
 
-### ✨ **NEW in v1.1: TDD Retrospective Integration**
-
-Every fix in P4/P5 now triggers a **structured root cause analysis** → **scope scan** → **consistent fix** cycle.
-Fixes are no longer isolated patches; they are **systemic improvements** that prevent the same class
-of error in future migrations. [Learn more →](CHANGELOG.md#major-features)
-
-</div>
+Every phase transition now requires passing an **autonomous self-auditing loop** before advancing.
+The AI enumerates all expected outputs, audits each one, fixes any gap, and re-audits — until **zero findings**.
+Only then is the phase marked DONE. No human involvement. No rubber-stamping. [Learn more →](CHANGELOG.md#v12--2026-05-15)
 
 </div>
 
@@ -144,14 +140,15 @@ This separation is deliberate. When an AI reads source code and immediately writ
 
 ## Persistent State as a First-Class Concern
 
-Every migration lives in four YAML files in `migration_workspace/`:
+Every migration lives in five YAML files in `migration_workspace/`:
 
 ```
 migration_workspace/
-├── migration-state.yaml      ← Session entry point. Read this first, always.
-├── asset-inventory.yaml      ← Every source file, its migration strategy, its status
-├── ecosystem-map.yaml        ← Every library/type/idiom mapped to target equivalent
-└── ipo-registry.yaml         ← Every function: inputs, process steps, outputs
+├── migration-state.yaml             ← Session entry point. Read this first, always.
+├── asset-inventory.yaml             ← Every source file, its migration strategy, its status
+├── ecosystem-map.yaml               ← Every library/type/idiom mapped to target equivalent
+├── ipo-registry.yaml                ← Every function: inputs, process steps, outputs
+└── retrospective-checklist.yaml     ← Lessons learned from every P4/P5 fix
 ```
 
 These files are the migration's "memory." Any AI agent — Claude Code, Cursor, GitHub Copilot, OpenCode — can pick up a migration mid-session by reading `migration-state.yaml`. The state is not in the AI's context window; it's on disk.
@@ -371,22 +368,27 @@ The agent reads `SKILL.md`, initializes `migration_workspace/`, and begins Phase
 
 ```
 lang-migration/
-├── SKILL.md                         ← Agent entry point and orchestration protocol
+├── SKILL.md                              ← Agent entry point and orchestration protocol
+├── CHANGELOG.md                          ← Version history
 ├── templates/
-│   ├── migration-state.yaml         ← Session state machine
-│   ├── asset-inventory.yaml         ← File classification registry
-│   ├── ecosystem-map.yaml           ← Library/type mapping registry
-│   └── ipo-registry.yaml            ← Function IPO specification registry
+│   ├── migration-state.yaml              ← Session state machine (includes phase_gates block)
+│   ├── asset-inventory.yaml              ← File classification registry
+│   ├── ecosystem-map.yaml                ← Library/type mapping registry
+│   ├── ipo-registry.yaml                 ← Function IPO specification registry
+│   └── retrospective-checklist.yaml      ← Fix root-cause log (5th workspace file)
 ├── references/
-│   ├── schemas.md                   ← Full field definitions for all YAML files
+│   ├── schemas.md                        ← Full field definitions for all five YAML files
+│   ├── phase-0-bootstrap.md              ← P0 workspace initialization
 │   ├── phase-1-asset-scan.md
 │   ├── phase-2-ecosystem-map.md
-│   ├── phase-3-ipo-analysis.md      ← Evidence Obligation protocol lives here
+│   ├── phase-3-ipo-analysis.md           ← Evidence Obligation protocol lives here
 │   ├── phase-4-translation.md
 │   ├── phase-5-verification.md
 │   ├── phase-6-gap-report.md
+│   ├── phase-gate-review.md              ← PGR autonomous closure protocol (v1.2)
+│   ├── tdd-retrospective.md              ← Fix retrospective protocol (v1.1)
 │   └── lang-pairs/
-│       ├── TEMPLATE.md              ← Extend to new language pairs
+│       ├── TEMPLATE.md                   ← Extend to new language pairs
 │       ├── python-rust.md
 │       ├── python-go.md
 │       ├── python-c.md
@@ -402,8 +404,8 @@ lang-migration/
 │       ├── bun-python.md
 │       └── typescript-python.md
 └── scripts/
-    ├── scan_assets.py               ← Phase 1 file scanner
-    └── gap_report.py                ← Phase 6 completeness auditor
+    ├── scan_assets.py                    ← Phase 1 file scanner
+    └── gap_report.py                     ← Phase 6 completeness auditor
 ```
 
 ---

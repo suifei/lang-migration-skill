@@ -210,3 +210,23 @@ Before marking P5 DONE:
   - All behavioral equivalence decisions
   - Known limitations vs source
   - Retrospective summary: most common root cause category and improvement suggestion
+
+---
+
+## Phase Exit: Trigger PGR-5
+
+When you believe P5 is complete, do NOT mark it DONE yet.
+
+Load `references/phase-gate-review.md` and run PGR-5 using the audit criteria defined there.
+Only set `phases.P5_verification: DONE` after PGR-5 passes with zero findings.
+
+The PGR-5 loop will:
+1. Verify every ipo-registry entry has TEST OUTPUT EVIDENCE (actual runner output shown in session)
+2. Verify every retrospective entry from P5 is `status: RESOLVED` or `status: DEFERRED` with a documented reason
+3. Verify the Gap Report (P6) has been run and its output is present in the session response showing TRUE 1:1 COMPLETION
+4. Verify the gap report shows `d5.accidental_gaps == 0`
+5. Verify the Final Retrospective Checklist Summary has been output in the session response
+6. Fix any findings autonomously and re-audit from scratch until zero findings remain
+
+`phases.P5_verification: DONE` is set by PGR-5 as its final action — never set it directly.
+After PGR-5 passes, the migration is complete.

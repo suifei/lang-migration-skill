@@ -43,6 +43,44 @@ stats:
   verification_passed: 0
   verification_failed: 0
 
+phase_gates:
+  PGR_0:
+    status: TODO           # TODO | IN_PROGRESS | PASSED
+    iteration_count: 0     # how many audit loops ran
+    findings_resolved: 0   # cumulative findings fixed
+    passed_at: ""          # ISO timestamp when zero findings achieved
+    last_report: ""        # one-line summary of final audit
+  PGR_1:
+    status: TODO
+    iteration_count: 0
+    findings_resolved: 0
+    passed_at: ""
+    last_report: ""
+  PGR_2:
+    status: TODO
+    iteration_count: 0
+    findings_resolved: 0
+    passed_at: ""
+    last_report: ""
+  PGR_3:
+    status: TODO
+    iteration_count: 0
+    findings_resolved: 0
+    passed_at: ""
+    last_report: ""
+  PGR_4:
+    status: TODO
+    iteration_count: 0
+    findings_resolved: 0
+    passed_at: ""
+    last_report: ""
+  PGR_5:
+    status: TODO
+    iteration_count: 0
+    findings_resolved: 0
+    passed_at: ""
+    last_report: ""
+
 decisions_log:
   # Record all human decisions here for audit trail
   # - date: ""

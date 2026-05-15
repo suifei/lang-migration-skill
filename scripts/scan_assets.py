@@ -11,9 +11,15 @@ The AI agent then fills in `purpose`, `migration_strategy`, and other fields.
 
 import argparse
 import os
-import yaml
+import sys
 from datetime import datetime
 from pathlib import Path
+
+try:
+    import yaml
+except ImportError:
+    print("ERROR: PyYAML not installed. Run: pip install pyyaml --break-system-packages")
+    sys.exit(1)
 
 # Maps file extension to likely asset type
 EXTENSION_TYPE_MAP = {
@@ -56,9 +62,11 @@ EXTENSION_TYPE_MAP = {
     "yarn.lock": "dependency_manifest", "bun.lockb": "dependency_manifest",
 
     # Environment / config
+    # Both .yml and .yaml default to environment_config (strategy: preserve).
+    # The classify_file() refine block promotes .github/workflows/*.yml|yaml → ci_config.
     ".env": "environment_config", ".env.example": "environment_config",
-    ".yml": "ci_config",  # may be CI or config — AI to refine
-    ".yaml": "environment_config",  # AI to refine
+    ".yml": "environment_config",
+    ".yaml": "environment_config",
     "Dockerfile": "environment_config",
     "docker-compose.yml": "environment_config",
     "docker-compose.yaml": "environment_config",
@@ -227,5 +235,7 @@ if __name__ == "__main__":
         print(f"Error: source dir not found: {args.source}")
         raise SystemExit(1)
 
-    os.makedirs(os.path.dirname(os.path.abspath(args.output)), exist_ok=True)
+    output_dir = os.path.dirname(os.path.abspath(args.output))
+    if output_dir:
+        os.makedirs(output_dir, exist_ok=True)
     scan(args.source, args.output)

@@ -225,3 +225,22 @@ phases:
 meta:
   new_dependencies: [<list all target packages added>]
 ```
+
+---
+
+## Phase Exit: Trigger PGR-2
+
+When you believe P2 is complete, do NOT mark it DONE yet.
+
+Load `references/phase-gate-review.md` and run PGR-2 using the audit criteria defined there.
+Only set `phases.P2_ecosystem_map: DONE` after PGR-2 passes with zero findings.
+
+The PGR-2 loop will:
+1. Verify every import/symbol from translate-strategy source files has an ecosystem-map entry
+2. Verify no entries remain at `status: NEEDS_REVIEW`
+3. Verify every CONFIRMED entry has non-empty `confirmation_evidence.source_behavior` and `target_behavior`
+4. Verify every entry has `equivalence_type` set
+5. Verify no orphan entries reference symbols not found in source files
+6. Fix any findings autonomously and re-audit from scratch until zero findings remain
+
+`phases.P2_ecosystem_map: DONE` is set by PGR-2 as its final action — never set it directly.

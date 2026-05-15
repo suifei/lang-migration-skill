@@ -1,7 +1,7 @@
 # retrospective-checklist.yaml
 # Auto-grows as fixes are applied during P4/P5.
 # Each entry represents one root cause CLASS, not one bug instance.
-# Initialized at P4 start; grows throughout P4 and P5.
+# Initialized at P0 Bootstrap (alongside the other four workspace files); grows throughout P4 and P5.
 #
 # Root cause categories:
 #   ecosystem_gap_unapplied       — known gap not applied during translation

@@ -59,6 +59,7 @@ without actually doing the work. Every phase has mechanisms to detect and preven
 | P4 | Compilation succeeds; IPO entry updated with `target_lines`; **every fix triggers TDD Retrospective** |
 | P5 | **TEST OUTPUT EVIDENCE** (actual runner output, not just "tests pass"); **every fix triggers TDD Retrospective**; **full suite re-run after each fix**; **Checklist Summary at phase end** |
 | Fix | `retrospective-checklist.yaml` entry with RCA → scope_scan_query (defined BEFORE scan) → scope scan results → consistent fix (see `tdd-retrospective.md`) |
+| **PGR** | **Full audit report output in response** listing every item checked; each FINDING citing exact artifact (file path, field, value); each FIXED citing same artifact after change; `findings_count: 0` proven by enumerated item list; `phase_gates.PGR_N.passed_at` timestamp set only after zero-findings pass |
 
 **New in v1.1: TDD Retrospective Integration**
 
@@ -117,6 +118,8 @@ In **editor_mode**: generate file lists manually by reading directory structure;
 
 2. Read `current_task` block. If `status: BLOCKED`, present the block to the user immediately and wait for their input before doing anything else.
 
+2b. **Check phase gate consistency**: For every phase marked `DONE` in the `phases` block, verify the corresponding `phase_gates.PGR_N.passed_at` is non-empty. If a phase is `DONE` but `passed_at` is empty, the PGR was not completed. Re-run PGR-N for that phase before advancing to the next phase. Load `references/phase-gate-review.md` for the audit criteria.
+
 3. **Check if the user's opening message is a status/gap question:**
    - Triggers: "还差什么", "进度怎样", "gap report", "show status", "还有哪些", "差多少", "完成了多少"
    - If YES → run P6 Gap Report immediately, output the summary to the user, then ask how to proceed
@@ -144,6 +147,7 @@ Each phase has a detailed reference file. Load it when entering that phase:
 
 | Phase | Reference File |
 |-------|----------------|
+| P0    | `references/phase-0-bootstrap.md` |
 | P1    | `references/phase-1-asset-scan.md` |
 | P2    | `references/phase-2-ecosystem-map.md` |
 | P3    | `references/phase-3-ipo-analysis.md` |
@@ -151,6 +155,54 @@ Each phase has a detailed reference file. Load it when entering that phase:
 | P5    | `references/phase-5-verification.md` |
 | P6    | `references/phase-6-gap-report.md` |
 | **Fix (v1.1)** | **`references/tdd-retrospective.md` ← mandatory on every fix in P4/P5** |
+| **PGR** | **`references/phase-gate-review.md` ← mandatory between every phase transition** |
+
+---
+
+## Phase Gate Review Protocol (PGR)
+
+**A phase is not complete when the AI says it is complete. A phase is complete when PGR-N passes with zero findings.**
+
+After every phase finishes, the AI enters an autonomous self-auditing loop before advancing to the next phase. This loop requires no human involvement.
+
+### Updated Pipeline with PGR Gates
+
+```
+P0 Bootstrap → [PGR-0] → P1 Asset Scan → [PGR-1] → P2 Ecosystem Map → [PGR-2]
+    → P3 IPO Analysis → [PGR-3] → P4 Translation → [PGR-4] → P5 Verification → [PGR-5] → DONE
+```
+
+### How PGR Works
+
+Each PGR-N runs an **enumerate → audit → fix → re-audit** loop:
+
+1. **Enumerate** — list every expected output of the completed phase
+2. **Audit** — check each output against phase-specific criteria; record any FINDING with artifact evidence
+3. **Tally** — if `findings_count == 0`, advance; if `findings_count > 0`, proceed to Fix
+4. **Fix** — fix each FINDING autonomously; record artifact evidence of each fix
+5. **Re-audit** — return to Step 1 (full re-enumeration required after every fix pass)
+6. **Pass** — when zero findings: set `phase_gates.PGR_N.status: PASSED`; only then set `phases.PN_xxx: DONE`
+
+### Core Rule
+
+The phase status `DONE` in `migration-state.yaml` must NEVER be set directly at the end of a phase.
+It is only set by PGR-N as the final action of a passed audit. Any session that finds a phase marked
+`DONE` without a corresponding `phase_gates.PGR_N.passed_at` timestamp must re-run PGR-N before
+advancing (see Session Start Protocol).
+
+### PGR Reference
+
+| Gate | Triggered After | Reference |
+|------|----------------|-----------|
+| PGR-0 | P0 Bootstrap | `references/phase-gate-review.md#pgr-0` |
+| PGR-1 | P1 Asset Scan | `references/phase-gate-review.md#pgr-1` |
+| PGR-2 | P2 Ecosystem Map | `references/phase-gate-review.md#pgr-2` |
+| PGR-3 | P3 IPO Analysis | `references/phase-gate-review.md#pgr-3` |
+| PGR-4 | P4 Translation | `references/phase-gate-review.md#pgr-4` |
+| PGR-5 | P5 Verification | `references/phase-gate-review.md#pgr-5` |
+
+For the full protocol including per-phase audit criteria, finding formats, and anti-cheating rules,
+see: `references/phase-gate-review.md`
 
 ---
 
@@ -165,11 +217,12 @@ When `migration-state.yaml` does not exist:
 
 2. Determine language pair key (e.g., `python-rust`). If the file `references/lang-pairs/<pair>.md` does not exist, load `references/lang-pairs/TEMPLATE.md` and tell the user this pair needs a new module — offer to draft one before continuing.
 
-3. Copy all four template files from `templates/` into `migration_workspace/`:
+3. Copy all five template files from `templates/` into `migration_workspace/`:
    - `migration-state.yaml` → fill in meta block
    - `asset-inventory.yaml` → empty, ready for P1
    - `ecosystem-map.yaml` → empty, ready for P2
    - `ipo-registry.yaml` → empty, ready for P3
+   - `retrospective-checklist.yaml` → empty, ready for first P4/P5 fix
 
 4. Set `phases.P0_bootstrap: DONE` and `phases.P1_asset_scan: IN_PROGRESS`
 
@@ -235,7 +288,7 @@ Session Summary
 
 ## YAML Schema Reference
 
-For full field definitions of all four YAML files, see: `references/schemas.md`
+For full field definitions of all five YAML files, see: `references/schemas.md`
 
 ---
 

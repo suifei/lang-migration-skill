@@ -26,20 +26,16 @@ Skillhub:[https://skillhub.cn/skills/lang-migration](https://skillhub.cn/skills/
 [![阶段: P0–P6](https://img.shields.io/badge/Phases-P0_through_P6-green)](#六阶段流水线)
 [![防作弊](https://img.shields.io/badge/Anti--Cheating-Protocol_Enforced-red)](#核心创新证据义务)
 [![兼容工具](https://img.shields.io/badge/Works_With-Claude_Code_|_Cursor_|_Copilot_|_OpenCode-purple)](#运行环境)
-[![版本: 1.1](https://img.shields.io/badge/Version-1.1-blue)](#retrospective-集成-v11)
+[![版本: 1.2](https://img.shields.io/badge/Version-1.2-blue)](#阶段门禁复盘-pgr--v12)
 
 **[English](README.md) | 中文**
 
 *跨编程语言迁移任何开源代码库 — 保证结构完整性、持久化状态管理，并提供AI实际完成工作的可验证证明。*
 
-<div align="center">
+### ✨ **v1.2 新增：阶段门禁复盘（PGR）**
 
-### ✨ **v1.1 新增：TDD复盘集成**
-
-P4/P5 中的每个修复现在都会触发**结构化根因分析** → **范围扫描** → **一致性修复**循环。
-修复不再是孤立的补丁，而是**系统性改进**，可防止未来迁移中出现相同错误类别。[了解更多 →](CHANGELOG.md#major-features)
-
-</div>
+每个阶段流转前，必须通过**自主自审循环**才能推进。AI枚举所有预期产出，逐项审计，修复发现的问题，再次审计——直至**零发现**。
+只有这时，阶段才被标记为完成。全程无需人类干预，杜绝橡皮图章式推进。[了解更多 →](CHANGELOG.md#v12--2026-05-15)
 
 </div>
 
@@ -140,14 +136,15 @@ BEHAVIOR_PROOF for calculate_entropy:
 
 ## 持久化状态作为一级关注
 
-每次迁移都在 `migration_workspace/` 中的四个YAML文件中：
+每次迁移都在 `migration_workspace/` 中的五个YAML文件中：
 
 ```
 migration_workspace/
-├── migration-state.yaml      ← 会话入口点。始终先读这个。
-├── asset-inventory.yaml      ← 每个源文件、其迁移策略、其状态
-├── ecosystem-map.yaml        ← 每个库/类型/习用语映射到目标等价物
-└── ipo-registry.yaml         ← 每个函数：输入、处理步骤、输出
+├── migration-state.yaml             ← 会话入口点。始终先读这个。（含 phase_gates 追踪块）
+├── asset-inventory.yaml             ← 每个源文件、其迁移策略、其状态
+├── ecosystem-map.yaml               ← 每个库/类型/习用语映射到目标等价物
+├── ipo-registry.yaml                ← 每个函数：输入、处理步骤、输出
+└── retrospective-checklist.yaml     ← P4/P5 每次修复的根因记录（第五个工作区文件）
 ```
 
 这些文件是迁移的"记忆"。任何AI代理 — Claude Code、Cursor、GitHub Copilot、OpenCode — 都可以通过读取 `migration-state.yaml` 在会话中间接续迁移。状态不在AI的上下文窗口中；它在磁盘上。
@@ -367,22 +364,27 @@ git clone https://github.com/suifei/lang-migration-skill.git .agents/skills/lang
 
 ```
 lang-migration/
-├── SKILL.md                         ← 代理入口点和编排协议
+├── SKILL.md                              ← 代理入口点和编排协议
+├── CHANGELOG.md                          ← 版本历史
 ├── templates/
-│   ├── migration-state.yaml         ← 会话状态机
-│   ├── asset-inventory.yaml         ← 文件分类注册表
-│   ├── ecosystem-map.yaml           ← 库/类型映射注册表
-│   └── ipo-registry.yaml            ← 函数IPO规范注册表
+│   ├── migration-state.yaml              ← 会话状态机（含 phase_gates 追踪块）
+│   ├── asset-inventory.yaml              ← 文件分类注册表
+│   ├── ecosystem-map.yaml                ← 库/类型映射注册表
+│   ├── ipo-registry.yaml                 ← 函数IPO规范注册表
+│   └── retrospective-checklist.yaml      ← 修复根因记录（第五个工作区文件）
 ├── references/
-│   ├── schemas.md                   ← 所有YAML文件的完整字段定义
+│   ├── schemas.md                        ← 所有五个YAML文件的完整字段定义
+│   ├── phase-0-bootstrap.md              ← P0 工作区初始化参考
 │   ├── phase-1-asset-scan.md
 │   ├── phase-2-ecosystem-map.md
-│   ├── phase-3-ipo-analysis.md      ← 证据义务协议在这里
+│   ├── phase-3-ipo-analysis.md           ← 证据义务协议在这里
 │   ├── phase-4-translation.md
 │   ├── phase-5-verification.md
 │   ├── phase-6-gap-report.md
+│   ├── phase-gate-review.md              ← PGR 自主闭环协议（v1.2）
+│   ├── tdd-retrospective.md              ← 修复复盘协议（v1.1）
 │   └── lang-pairs/
-│       ├── TEMPLATE.md              ← 扩展到新语言对
+│       ├── TEMPLATE.md                   ← 扩展到新语言对
 │       ├── python-rust.md
 │       ├── python-go.md
 │       ├── python-c.md
@@ -398,8 +400,8 @@ lang-migration/
 │       ├── bun-python.md
 │       └── typescript-python.md
 └── scripts/
-    ├── scan_assets.py               ← 第1阶段文件扫描器
-    └── gap_report.py                ← 第6阶段完整性审计器
+    ├── scan_assets.py                    ← 第1阶段文件扫描器
+    └── gap_report.py                     ← 第6阶段完整性审计器
 ```
 
 ---
