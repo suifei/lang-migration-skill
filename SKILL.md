@@ -56,8 +56,20 @@ without actually doing the work. Every phase has mechanisms to detect and preven
 |---|---|
 | P2 | `confirmation_evidence` block per CONFIRMED entry |
 | P3 | `READ_EVIDENCE` + `BEHAVIOR_PROOF` per function; `source_lines` in every step; `source_line` on every magic number |
-| P4 | Compilation succeeds; IPO entry updated with `target_lines` |
-| P5 | Test output (not just "tests pass" — actual output shown) |
+| P4 | Compilation succeeds; IPO entry updated with `target_lines`; **every fix triggers TDD Retrospective** |
+| P5 | **TEST OUTPUT EVIDENCE** (actual runner output, not just "tests pass"); **every fix triggers TDD Retrospective**; **full suite re-run after each fix**; **Checklist Summary at phase end** |
+| Fix | `retrospective-checklist.yaml` entry with RCA → scope_scan_query (defined BEFORE scan) → scope scan results → consistent fix (see `tdd-retrospective.md`) |
+
+**New in v1.1: TDD Retrospective Integration**
+
+The **Retrospective Protocol** is now mandatory at every fix point:
+- **Trigger**: Compilation error, vet failure, structural deviation, test failure
+- **Steps**: RCA (root cause analysis) → Checklist rule → Scope scan → Consistent fix
+- **Output**: Entry in `retrospective-checklist.yaml` with root cause category and generalized rule
+- **Scope scan constraint**: `scope_scan_query` MUST be written before scanning (prevents post-hoc bias)
+- **Impact**: After each fix, full test suite is re-run; new failures each trigger independent retrospectives
+
+See [v1.1 Retrospective Integration](#retrospective-integration-v11) below and `references/tdd-retrospective.md`.
 
 **Self-Verification is not optional.** Each phase that has a Self-Verification Protocol
 must run it and output the report before advancing. The report must appear in the AI's
@@ -138,6 +150,7 @@ Each phase has a detailed reference file. Load it when entering that phase:
 | P4    | `references/phase-4-translation.md` |
 | P5    | `references/phase-5-verification.md` |
 | P6    | `references/phase-6-gap-report.md` |
+| **Fix (v1.1)** | **`references/tdd-retrospective.md` ← mandatory on every fix in P4/P5** |
 
 ---
 
@@ -223,3 +236,154 @@ Session Summary
 ## YAML Schema Reference
 
 For full field definitions of all four YAML files, see: `references/schemas.md`
+
+---
+
+## Retrospective Integration (v1.1)
+
+**New: Mandatory TDD Retrospectives on every fix in P4 and P5**
+
+This release formalizes the integration of the TDD Retrospective Protocol into the core pipeline.
+See `CHANGELOG.md` for full details.
+
+### Why Root Cause, Not Phenomenon?
+
+Traditional bug tracking records **what failed**:
+```
+test_loop_tool_order FAILED
+Expected execution order: [search, read, write]
+Actual order: [write, read, search]
+```
+
+This documents a symptom. The same underlying problem will manifest differently next time.
+
+The retrospective records **structural root causes**:
+```
+Root cause: ecosystem_gap_unapplied
+Problem: Python dict preserves insertion order (3.7+). IPO registry documented this gap
+and specified IndexMap/[]Entry as compensation. Translation used map[K]V, silently losing order.
+```
+
+When the next function translates a Python dict, the AI can check the retrospective **before**
+translating, preventing the error instead of fixing it after failure.
+
+**This is the self-improving aspect of v1.1**: Each migration's lessons become infrastructure
+for the next migration of the same language pair.
+
+### Core Design Principles
+
+#### 1. Root Cause Categories
+
+Nine predefined categories force abstract thinking:
+- `ecosystem_gap_unapplied` — known gap was not applied
+- `semantic_contract_lost` — implicit contract not preserved
+- `invariant_not_transferred` — inferred invariant missing
+- `magic_number_decontextualized` — constant without context
+- `control_flow_collapsed` — IPO steps merged/reordered
+- `error_class_narrowed` — specific exception generalized
+- `side_effect_dropped` — documented side effect missing
+- `ipo_source_lines_wrong` — P3 analysis based on wrong lines
+- `test_fixture_mismatch` — fixture format changed
+- `other` — describe if no category fits
+
+Each fix produces exactly ONE entry with ONE category. No category hopping.
+
+#### 2. Scope Scan: Query BEFORE Execution
+
+**Mandatory rule**: Define `scope_scan_query` before scanning.
+
+This prevents LLM cheating patterns like:
+- Scan codebase → observe results → retroactively define "the scope that matches findings"
+
+Example:
+```yaml
+Root cause: dict insertion-order dependency not preserved
+
+scope_scan_query: "grep -rn 'map\[string\]' internal/ --include='*.go'"
+(The query is written BEFORE executing the grep. It appears in the retrospective entry.)
+```
+
+The query is your prediction of where the root cause manifests. If results don't match predictions,
+it's a signal that the root cause analysis was incomplete.
+
+#### 3. Consistent Fix Across All Instances
+
+Scope scan identifies all instances with the same root cause. All are fixed simultaneously
+using the same fix strategy. This prevents:
+- The bug reappearing in a file not yet reviewed
+- Maintenance inconsistency (same bug, different fixes in different places)
+
+After scope fix, **full test suite is re-run** (not just the failing test). Any new failures
+trigger independent retrospectives — they are not merged.
+
+#### 4. Ecosystem Map Auto-Update
+
+Flag `ecosystem_map_update_required: true` in the retrospective entry triggers automatic
+update to `ecosystem-map.yaml` at phase-end.
+
+Example:
+- P4: dict ordering bug found, fixed, retrospective entry created
+- Entry sets `ecosystem_map_update_required: true`
+- P4 end: ecosystem map updated with stronger guidance
+- **Next migration benefits** — same class of error is harder to commit
+
+### Checklist Summary (Phase-End Report)
+
+At the END of P4 and P5, output a **Checklist Summary**:
+
+```
+RETROSPECTIVE CHECKLIST SUMMARY (end of P5):
+  total_rca_entries:          24
+  total_instances_found:      67
+  total_instances_fixed:      64
+  instances_deferred:         3
+
+Most common root cause categories:
+  1. ecosystem_gap_unapplied         (9 entries)   → suggests ecosystem map gaps
+  2. semantic_contract_lost          (6 entries)   → suggests IPO analysis depth issue
+  3. magic_number_decontextualized   (4 entries)   → suggests naming discipline
+
+Ecosystem map updates applied: 3
+  - dict iteration order guidance strengthened
+  - float precision rules clarified
+  - exception mapping for stdlib errors expanded
+
+Next language pair migration of python→go should consult these 24 entries
+before beginning translation — prevents category-1 errors upfront.
+```
+
+This summary is the handoff to the next migration team or agent.
+
+### Integration with P4/P5
+
+**P4 Trigger:**
+```
+Compilation/vet error found
+  ↓
+Fix applied
+  ↓
+Trigger: Retrospective Protocol
+  ↓
+RCA → Checklist rule → Scope scan query → Scope scan → Consistent fix
+  ↓
+Resume P4 from next file
+```
+
+**P5 Trigger:**
+```
+Structural deviation or test failure found
+  ↓
+Fix applied
+  ↓
+Trigger: Retrospective Protocol
+  ↓
+RCA → Checklist rule → Scope scan query → Scope scan → Consistent fix
+  ↓
+Full test suite re-run (not just failing test)
+  ↓
+If new failures: each triggers independent retrospective
+  ↓
+Resume P5 from next function
+```
+
+For detailed protocol, see: `references/tdd-retrospective.md`

@@ -172,6 +172,38 @@ Block when:
 
 ---
 
+## Fix Protocol: TDD Retrospective Required
+
+When any compilation error, `go vet` warning, or structural mismatch is found and fixed:
+
+```
+ERROR FOUND → fix applied → MANDATORY: TDD Retrospective Protocol
+                            (see references/tdd-retrospective.md)
+
+Step 1 ROOT CAUSE ANALYSIS
+  - Phenomenon: exact error, file, line
+  - Root cause category (ecosystem_gap_unapplied | semantic_contract_lost | ...)
+  - Root cause: structural reason — not "I forgot X"
+
+Step 2 CHECKLIST ENTRY
+  - Write entry to migration_workspace/retrospective-checklist.yaml
+  - checklist_rule: "Whenever [pattern], check for [property]"
+
+Step 3 SCOPE SCAN  ← define search pattern BEFORE scanning
+  - grep/search entire target codebase for the same root cause pattern
+  - Classify each hit: FIXED | OK | DEFERRED
+
+Step 4 CONSISTENT FIX
+  - Apply identical fix strategy to all FIXED instances
+  - Re-run: go build ./... + go vet ./... (full build, not just current file)
+  - If new errors appear: each triggers its own retrospective
+```
+
+Only after these four steps: continue to the next translation unit.
+A fix without a retrospective is a local patch. A fix with a retrospective is a systemic improvement.
+
+---
+
 ## Dependency Manifest
 
 After all source files are translated, write the target's dependency manifest:

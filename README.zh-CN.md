@@ -26,10 +26,20 @@ Skillhub:[https://skillhub.cn/skills/lang-migration](https://skillhub.cn/skills/
 [![阶段: P0–P6](https://img.shields.io/badge/Phases-P0_through_P6-green)](#六阶段流水线)
 [![防作弊](https://img.shields.io/badge/Anti--Cheating-Protocol_Enforced-red)](#核心创新证据义务)
 [![兼容工具](https://img.shields.io/badge/Works_With-Claude_Code_|_Cursor_|_Copilot_|_OpenCode-purple)](#运行环境)
+[![版本: 1.1](https://img.shields.io/badge/Version-1.1-blue)](#retrospective-集成-v11)
 
 **[English](README.md) | 中文**
 
 *跨编程语言迁移任何开源代码库 — 保证结构完整性、持久化状态管理，并提供AI实际完成工作的可验证证明。*
+
+<div align="center">
+
+### ✨ **v1.1 新增：TDD复盘集成**
+
+P4/P5 中的每个修复现在都会触发**结构化根因分析** → **范围扫描** → **一致性修复**循环。
+修复不再是孤立的补丁，而是**系统性改进**，可防止未来迁移中出现相同错误类别。[了解更多 →](CHANGELOG.md#major-features)
+
+</div>
 
 </div>
 

@@ -24,11 +24,22 @@
 [![Anti-Cheating](https://img.shields.io/badge/Anti--Cheating-Protocol_Enforced-red)](#the-evidence-obligation-protocol)
 [![Works With](https://img.shields.io/badge/Works_With-Claude_Code_|_Cursor_|_Copilot_|_OpenCode-purple)](#runtime-environments)
 [![ClawHub](https://clawhub.ai/favicon.ico)](https://clawhub.ai/suifei/lang-migration)
+[![Version: 1.1](https://img.shields.io/badge/Version-1.1-blue)](#retrospective-integration-v11)
 
 **English | [中文](README.zh-CN.md)**
 
 *Migrate any open-source codebase across programming languages — with structural fidelity,
 persistent state, and verifiable proof that the AI actually did the work.*
+
+<div align="center">
+
+### ✨ **NEW in v1.1: TDD Retrospective Integration**
+
+Every fix in P4/P5 now triggers a **structured root cause analysis** → **scope scan** → **consistent fix** cycle.
+Fixes are no longer isolated patches; they are **systemic improvements** that prevent the same class
+of error in future migrations. [Learn more →](CHANGELOG.md#major-features)
+
+</div>
 
 </div>
 

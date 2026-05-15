@@ -141,15 +141,52 @@ verification:
 
 ---
 
-## Regression Strategy
+## Regression Strategy + TDD Retrospective Protocol
 
-When a Track B failure is found:
+When a Track A structural deviation or Track B test failure is found and fixed:
 
-1. Identify which IPO step produces wrong output (binary search with intermediate value logging)
-2. Check if the error originates in a dependency function (may need to re-verify callees)
-3. Check if the ecosystem map has a gap that was not compensated
-4. Return to P4 for the failing function and any of its callers affected by the bug
-5. After fix, re-run full Track A + Track B for the affected function
+### Step 1: Diagnose
+- **Track A failure**: which IPO checklist item failed? Which step/magic_number/invariant?
+- **Track B failure**: binary search to identify which IPO process step produces wrong output; add intermediate value logging
+
+Check in order:
+1. Does the error originate in a dependency function? (re-verify callees first)
+2. Does ecosystem-map show a gap that was documented but not applied?
+3. Was an inferred invariant from P3 not reflected in the translation?
+
+### Step 2: Fix
+
+Apply the minimal correct fix. Do not refactor unrelated code during a test fix.
+
+### Step 3: MANDATORY — TDD Retrospective (see `references/tdd-retrospective.md`)
+
+After every fix — without exception — run the four-step retrospective:
+
+```
+ROOT CAUSE ANALYSIS → write RCA entry to retrospective-checklist.yaml
+CHECKLIST RULE      → "Whenever [pattern], check for [property]"
+SCOPE SCAN          → define search pattern BEFORE scanning; classify all hits
+CONSISTENT FIX      → same fix strategy for all FIXED instances
+```
+
+### Step 4: Re-run Full Test Suite
+
+After the retrospective scope fixes are applied, re-run the **complete** test suite —
+not just the originally failing test. A scope-scan fix may introduce a new failure
+in a related component.
+
+```bash
+go test ./...     # full suite
+go vet ./...      # structural check
+```
+
+If new failures appear: each triggers its own independent retrospective.
+Do not batch multiple failures into one retrospective entry.
+
+### Step 5: Retrospective Checklist Gate (end of P5)
+
+Before marking P5 DONE, read all entries in `retrospective-checklist.yaml` and output
+the Checklist Summary (defined in `references/tdd-retrospective.md`).
 
 ---
 
@@ -164,9 +201,12 @@ Before marking P5 DONE:
 - [ ] Original CI pipeline (adapted) passes on the target project
 - [ ] `migration-state.yaml` final stats are updated
 - [ ] `decisions_log` includes all human decisions made during the migration
+- [ ] `retrospective-checklist.yaml` complete; Checklist Summary output in response
+- [ ] Ecosystem-map entries updated where `ecosystem_map_update_required: true`
 - [ ] A `MIGRATION_NOTES.md` is written at the target project root documenting:
   - Source project and version
   - Target language and toolchain version
   - All `GAP_ACCEPTED` entries and their compensation strategies
   - All behavioral equivalence decisions
   - Known limitations vs source
+  - Retrospective summary: most common root cause category and improvement suggestion
