@@ -338,7 +338,7 @@ In `editor_mode`, the AI generates the file lists manually and instructs the ope
 ```bash
 # Clone into your project's .agents/skills directory
 mkdir -p .agents/skills
-git clone https://github.com/YOUR_USERNAME/lang-migration .agents/skills/lang-migration
+git clone https://github.com/suifei/lang-migration-skill.git .agents/skills/lang-migration-skill
 ```
 
 Then tell your AI agent:

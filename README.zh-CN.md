@@ -337,7 +337,7 @@ current_task:
 ```bash
 # 克隆到你的项目的 .agents/skills 目录
 mkdir -p .agents/skills
-git clone https://github.com/YOUR_USERNAME/lang-migration .agents/skills/lang-migration
+git clone https://github.com/suifei/lang-migration-skill.git .agents/skills/lang-migration-skill
 ```
 
 然后告诉你的AI代理：
