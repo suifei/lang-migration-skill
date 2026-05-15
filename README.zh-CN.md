@@ -13,6 +13,9 @@
 ║                                                               ║
 ╚═══════════════════════════════════════════════════════════════╝
 ```
+ClawHub: [https://clawhub.ai/suifei/lang-migration](https://clawhub.ai/suifei/lang-migration)
+
+Skillhub:[https://skillhub.cn/skills/lang-migration](https://skillhub.cn/skills/lang-migration)
 
 # 编程语言迁移（lang-migration）
 
