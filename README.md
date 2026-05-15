@@ -23,6 +23,7 @@
 [![Phase: P0–P6](https://img.shields.io/badge/Phases-P0_through_P6-green)](#pipeline)
 [![Anti-Cheating](https://img.shields.io/badge/Anti--Cheating-Protocol_Enforced-red)](#the-evidence-obligation-protocol)
 [![Works With](https://img.shields.io/badge/Works_With-Claude_Code_|_Cursor_|_Copilot_|_OpenCode-purple)](#runtime-environments)
+[![ClawHub](https://clawhub.ai/favicon.ico)](https://clawhub.ai/suifei/lang-migration)
 
 **English | [中文](README.zh-CN.md)**
 
@@ -32,6 +33,10 @@ persistent state, and verifiable proof that the AI actually did the work.*
 </div>
 
 ---
+
+ClawHub: [https://clawhub.ai/suifei/lang-migration](https://clawhub.ai/suifei/lang-migration)
+
+Skillhub:[https://skillhub.cn/skills/lang-migration](https://skillhub.cn/skills/lang-migration)
 
 ## The Problem Nobody Talks About
 
