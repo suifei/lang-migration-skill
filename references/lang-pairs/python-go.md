@@ -131,6 +131,119 @@ func (s *FileStorage) Write(key string, data []byte) error { ... }
 | Using `panic` for logic errors | Not equivalent to exceptions | Use error returns |
 | Global `init()` for class-level state | Hides initialization order | Use explicit constructor functions |
 
+---
+
+## ⛔ Known Migration Traps (Python → Go)
+
+These patterns have historically caused structural drift that survived compilation and basic testing.
+**Read this section before beginning P4 translation.** Check each trap against the IPO registry
+for the function being translated before writing a single line of Go.
+
+---
+
+### Trap 1: Post-Construction Attribute Setting
+
+**Python pattern:**
+```python
+agent = start_subagent(config)
+agent.inc_out = True    # line 47 — NOT inside start_subagent()
+agent.verbose = False   # line 48 — NOT inside start_subagent()
+```
+
+**Failure mode**: The Go `NewSubagent()` constructor does not set `IncOut = true` or `Verbose = false`
+because those lines appear in the **caller**, not in the callee. If P3 only documented `start_subagent`,
+these assignments are invisible. The Go struct uses zero-value defaults (`false` for bool),
+which is silently wrong.
+
+**Detection**: Before translating any constructor/factory function, read **all call sites**.
+Look for `obj.attr = X` immediately after the call. These belong in the caller's `side_effects`
+in the IPO registry.
+
+**Fix protocol**:
+1. In `start_subagent`'s IPO entry: add `translation_notes` warning callers to set these fields
+2. In the caller's IPO entry: list in `side_effects`: `"sets agent.inc_out = True [line 47]"`
+3. In Go: set the fields in the caller after construction, matching the Python line-for-line
+
+**Root cause category**: `side_effect_dropped`
+
+---
+
+### Trap 2: Multi-Branch Turn-Based Callbacks
+
+**Python pattern (abbreviated):**
+```python
+def on_turn_end(turn: int, mode: str):
+    if turn % 65 == 0 and mode != "plan":  # branch A
+        ask_user(...)
+    elif mode == "plan" and turn % 5 == 0 and turn >= 10:  # branch B
+        prompt_plan_review(...)
+    if turn > 90 and mode == "plan":       # branch C — separate if, not elif
+        force_ask_user(...)
+```
+
+**Failure mode**: Go translation merges branches B and C into one `else if`, or uses a single
+`if/else if/else` chain when the Python uses two separate `if` blocks. The 90-turn forced
+callback then never fires independently of the 5-turn cadence.
+
+**Detection rule**: Count `if/elif/else/for/while` branches in the Python body.
+The number of `step` entries in the IPO registry must equal or exceed this count (READ_EVIDENCE
+`branch_count` field). If the Go translation has fewer `if` blocks than the Python, branches are collapsed.
+
+**Magic number check**: For functions with `type: iteration_limit` magic numbers (65, 5, 10, 90),
+boundary-value testing (N-1, N, N+1) is mandatory in P5 — see phase-5-verification.md.
+
+**Root cause category**: `control_flow_collapsed`
+
+---
+
+### Trap 3: Compound Processing with Conditional Secondary Transform
+
+**Python pattern:**
+```python
+def fetch_content(url: str, text_only: bool, maxlen: int) -> str:
+    content = get_html(url, text_only=True)       # primary fetch
+    if text_only:
+        content = smart_format(content, maxlen // 3)  # secondary truncation
+    return content
+```
+
+**Failure mode**: Go translation implements the primary fetch but omits the secondary
+`smart_format` call because it appears as a one-line conditional after the main logic.
+Result: content is 3× longer than expected in text_only mode.
+
+**Detection**: In the IPO `process.steps`, any step whose `desc` starts with "If [flag]:" after
+a primary operation is a **mandatory separate step** — not optional commentary.
+Count steps in the IPO entry. If the Go function body has fewer conditional blocks than steps,
+secondary transforms have been dropped.
+
+**Magic number check**: `maxlen // 3` is a `magic_number` of type `threshold`. It must appear
+as a named constant in Go — not as `maxlen/3` inline without a name.
+
+**Root cause category**: `control_flow_collapsed` (secondary) + `magic_number_decontextualized` (constant)
+
+---
+
+### Trap 4: dict Ordering
+
+**Python pattern:**
+```python
+result = {}
+for key in sorted_keys:
+    result[key] = compute(key)
+return result   # dict preserves insertion order (Python 3.7+)
+```
+
+**Failure mode**: Go `map[string]T` iterates in randomized order. Any downstream code
+that depends on the iteration order of this map will produce non-deterministic results.
+
+**Compensation**: Use `github.com/elliotchance/orderedmap` or return `[]Entry` (key-value slice)
+where Python dict insertion order is semantically important.
+
+**Detection**: Check if the function's callers iterate the dict in order, compare order-dependent
+outputs (e.g., joined strings, ranked lists). If yes, ordered map is required.
+
+**Root cause category**: `ecosystem_gap_unapplied`
+
 ## Ecosystem Gaps
 
 | Python | Gap | Compensation |
