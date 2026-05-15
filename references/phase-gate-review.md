@@ -162,17 +162,18 @@ the session start protocol must detect this and re-run PGR-N before proceeding.
 
 ### Expected Outputs
 
-The four template files copied to `migration_workspace/` with meta blocks filled.
+The five template files copied to `migration_workspace/` with meta blocks filled.
 
 ### Checks
 
 **Check PGR-0-A: Template files exist**
-- Verify these four files exist:
+- Verify these five files exist:
   - `migration_workspace/migration-state.yaml`
   - `migration_workspace/asset-inventory.yaml`
   - `migration_workspace/ecosystem-map.yaml`
   - `migration_workspace/ipo-registry.yaml`
-- PASS: all four files exist on disk
+  - `migration_workspace/retrospective-checklist.yaml`
+- PASS: all five files exist on disk
 - FINDING format: `PGR-0-A: migration_workspace/<filename> does not exist`
 
 **Check PGR-0-B: Meta block filled**

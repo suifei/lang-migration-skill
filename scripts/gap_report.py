@@ -135,17 +135,19 @@ def dim2_function_coverage(functions: list) -> dict:
             todo.append(fn["id"])
 
     true_pct = round(len(done_with_lines) / total * 100, 1) if total else 0
+    todo_cap = 20
 
     return {
-        "total":              total,
-        "done_with_lines":    len(done_with_lines),
-        "done_no_lines":      len(done_no_lines),
-        "done_no_lines_list": done_no_lines,
-        "todo":               len(todo),
-        "todo_list":          todo[:20],   # cap for readability
-        "blocked":            len(blocked),
-        "blocked_list":       blocked,
-        "true_completion_pct": true_pct,
+        "total":                total,
+        "done_with_lines":      len(done_with_lines),
+        "done_no_lines":        len(done_no_lines),
+        "done_no_lines_list":   done_no_lines,
+        "todo":                 len(todo),
+        "todo_list":            todo[:todo_cap],
+        "todo_list_truncated":  len(todo) > todo_cap,  # D-4: 明确标注截断
+        "blocked":              len(blocked),
+        "blocked_list":         blocked,
+        "true_completion_pct":  true_pct,
     }
 
 
@@ -246,7 +248,7 @@ def dim4_non_code_assets(assets: list, functions: list, target_files: set) -> di
 
 
 def dim5_skip_classification(assets: list, decisions_log: list,
-                              target_files: set) -> dict:
+                              target_files: set, target_lang: str = "target") -> dict:
     """Dimension 5: Intentional skips vs accidental gaps."""
 
     # Build set of intentionally skipped files from decisions_log
@@ -296,7 +298,7 @@ def dim5_skip_classification(assets: list, decisions_log: list,
         if is_platform:
             platform_specific.append({
                 "source": src_path,
-                "reason": "Python-only framework/library — no Go equivalent"
+                "reason": f"source-only framework/library — no {target_lang} equivalent"
             })
         else:
             accidental.append({
@@ -342,18 +344,19 @@ def compute_true_completion(d1, d2, d4) -> float:
 # ─── Report Rendering ──────────────────────────────────────────────────────────
 
 def render_markdown(state: dict, d1, d2, d3, d4, d5, true_pct: float,
-                    source_dir: str, target_dir: str) -> str:
+                    source_dir: str, target_dir: str, target_exists: bool = True) -> str:
     meta = state.get("meta", {})
     now  = datetime.now().strftime("%Y-%m-%d %H:%M")
 
     def pct(a, b):
         return f"{round(a/b*100,1)}%" if b else "N/A"
 
+    target_label = f"`{target_dir}`" if target_exists else f"`{target_dir}` ⚠️ **DIRECTORY NOT FOUND — all coverage metrics reflect missing target**"
     lines = [
         "# Migration Completeness Audit",
         f"**Project**: {meta.get('project_name', '?')}  ",
         f"**Generated**: {now}  ",
-        f"**Source**: `{source_dir}`  **Target**: `{target_dir}`  ",
+        f"**Source**: `{source_dir}`  **Target**: {target_label}  ",
         f"**Language pair**: {meta.get('source_lang','?')} → {meta.get('target_lang','?')}",
         "",
         "---",
@@ -396,7 +399,7 @@ def render_markdown(state: dict, d1, d2, d3, d4, d5, true_pct: float,
     if d4["p3_unreferenced"]:
         actions.append(("🟢", f"MINOR: {len(d4['p3_unreferenced'])} p3-required docs were never cited in IPO registry"))
     if d3["target_dirs_unexpected"] > 0:
-        actions.append(("🟢", f"MINOR: {d3['unexpected_target_dirs']} target directories don't obviously derive from source"))
+        actions.append(("🟢", f"MINOR: {d3['target_dirs_unexpected']} target directories don't obviously derive from source"))
 
     if actions:
         lines.append("## Priority Action Items")
@@ -497,9 +500,17 @@ def main():
     functions = ipo.get("functions", [])
     decisions = state.get("decisions_log", []) or []
 
+    target_lang = state.get("meta", {}).get("target_lang", "target")
+
     print(f"Scanning directories...")
     src_exists = src.exists()
     tgt_exists = tgt.exists()
+
+    # D-3: 目标目录不存在时给出明确警告，避免误读为"0%完成"
+    if not tgt_exists:
+        print(f"WARNING: target directory does not exist: {tgt}")
+        print("WARNING: All file coverage will show as missing. This reflects a missing target, not a 0% migration.")
+        print()
 
     src_files = walk_files(src) if src_exists else set()
     tgt_files = walk_files(tgt) if tgt_exists else set()
@@ -507,7 +518,7 @@ def main():
     tgt_dirs  = walk_dirs(tgt)  if tgt_exists else set()
 
     print(f"Source: {len(src_files)} files, {len(src_dirs)} dirs")
-    print(f"Target: {len(tgt_files)} files, {len(tgt_dirs)} dirs")
+    print(f"Target: {len(tgt_files)} files, {len(tgt_dirs)} dirs" + (" (DIRECTORY NOT FOUND)" if not tgt_exists else ""))
     print(f"IPO functions: {len(functions)}")
     print(f"Asset entries: {len(assets)}")
     print()
@@ -517,13 +528,13 @@ def main():
     d2 = dim2_function_coverage(functions)
     d3 = dim3_directory_coverage(src, tgt, src_dirs, tgt_dirs)
     d4 = dim4_non_code_assets(assets, functions, tgt_files)
-    d5 = dim5_skip_classification(assets, decisions, tgt_files)
+    d5 = dim5_skip_classification(assets, decisions, tgt_files, target_lang)
 
     true_pct = compute_true_completion(d1, d2, d4)
 
     # Render markdown
     md = render_markdown(state, d1, d2, d3, d4, d5, true_pct,
-                         args.source, args.target)
+                         args.source, args.target, tgt_exists)
 
     md_path   = ws / "gap-report.md"
     yaml_path = ws / "gap-report.yaml"

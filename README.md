@@ -31,15 +31,11 @@
 *Migrate any open-source codebase across programming languages — with structural fidelity,
 persistent state, and verifiable proof that the AI actually did the work.*
 
-<div align="center">
-
 ### ✨ **NEW in v1.1: TDD Retrospective Integration**
 
 Every fix in P4/P5 now triggers a **structured root cause analysis** → **scope scan** → **consistent fix** cycle.
 Fixes are no longer isolated patches; they are **systemic improvements** that prevent the same class
 of error in future migrations. [Learn more →](CHANGELOG.md#major-features)
-
-</div>
 
 </div>
 
@@ -144,14 +140,15 @@ This separation is deliberate. When an AI reads source code and immediately writ
 
 ## Persistent State as a First-Class Concern
 
-Every migration lives in four YAML files in `migration_workspace/`:
+Every migration lives in five YAML files in `migration_workspace/`:
 
 ```
 migration_workspace/
-├── migration-state.yaml      ← Session entry point. Read this first, always.
-├── asset-inventory.yaml      ← Every source file, its migration strategy, its status
-├── ecosystem-map.yaml        ← Every library/type/idiom mapped to target equivalent
-└── ipo-registry.yaml         ← Every function: inputs, process steps, outputs
+├── migration-state.yaml             ← Session entry point. Read this first, always.
+├── asset-inventory.yaml             ← Every source file, its migration strategy, its status
+├── ecosystem-map.yaml               ← Every library/type/idiom mapped to target equivalent
+├── ipo-registry.yaml                ← Every function: inputs, process steps, outputs
+└── retrospective-checklist.yaml     ← Lessons learned from every P4/P5 fix
 ```
 
 These files are the migration's "memory." Any AI agent — Claude Code, Cursor, GitHub Copilot, OpenCode — can pick up a migration mid-session by reading `migration-state.yaml`. The state is not in the AI's context window; it's on disk.

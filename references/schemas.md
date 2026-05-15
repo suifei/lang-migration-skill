@@ -1,6 +1,6 @@
 # YAML Schemas Reference
 
-Complete field definitions for all four persistence files.
+Complete field definitions for all five persistence files.
 Load this file when you need to validate or extend the YAML structures.
 
 ---

@@ -147,6 +147,7 @@ Each phase has a detailed reference file. Load it when entering that phase:
 
 | Phase | Reference File |
 |-------|----------------|
+| P0    | `references/phase-0-bootstrap.md` |
 | P1    | `references/phase-1-asset-scan.md` |
 | P2    | `references/phase-2-ecosystem-map.md` |
 | P3    | `references/phase-3-ipo-analysis.md` |
@@ -216,11 +217,12 @@ When `migration-state.yaml` does not exist:
 
 2. Determine language pair key (e.g., `python-rust`). If the file `references/lang-pairs/<pair>.md` does not exist, load `references/lang-pairs/TEMPLATE.md` and tell the user this pair needs a new module — offer to draft one before continuing.
 
-3. Copy all four template files from `templates/` into `migration_workspace/`:
+3. Copy all five template files from `templates/` into `migration_workspace/`:
    - `migration-state.yaml` → fill in meta block
    - `asset-inventory.yaml` → empty, ready for P1
    - `ecosystem-map.yaml` → empty, ready for P2
    - `ipo-registry.yaml` → empty, ready for P3
+   - `retrospective-checklist.yaml` → empty, ready for first P4/P5 fix
 
 4. Set `phases.P0_bootstrap: DONE` and `phases.P1_asset_scan: IN_PROGRESS`
 
@@ -286,7 +288,7 @@ Session Summary
 
 ## YAML Schema Reference
 
-For full field definitions of all four YAML files, see: `references/schemas.md`
+For full field definitions of all five YAML files, see: `references/schemas.md`
 
 ---
 
