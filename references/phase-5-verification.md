@@ -110,6 +110,59 @@ python scripts/run_differential.py \
   --fixtures "tests/fixtures/"
 ```
 
+### ⛔ Stateful / Accumulating Function Differential Testing
+
+For functions that maintain internal state or accumulate output across multiple calls
+(identified by `side_effects` containing "mutates self.", "appends to", "increments counter"):
+
+**Standard differential testing is insufficient** — a snapshot at turn N may match even
+when the delta between N-1 and N is wrong (the classic B1/B2 drift pattern).
+
+**Mandatory protocol:**
+
+1. Run the source implementation for **N iterations** (N ≥ 20, or 2× the largest `magic_number` cycle in the IPO entry)
+2. Record the **incremental delta** at each iteration: `delta_i = output_i − output_{i-1}`
+3. Run the target implementation for the same N iterations
+4. Compare deltas iteration-by-iteration — not just the final snapshot
+
+```
+STATEFUL DIFFERENTIAL EVIDENCE:
+  function: "<fn_id>"
+  iterations_run: <N>
+  source_delta_at_N:  "<value or structure>"
+  target_delta_at_N:  "<value or structure>"
+  drift_detected: true / false
+  first_divergence_at_iteration: <i>   # if drift_detected
+```
+
+If `drift_detected: true` → this is a `side_effect_dropped` root cause (see retrospective protocol).
+
+### ⛔ Boundary-Value Testing for Numeric Threshold Constants
+
+For any function whose IPO registry `magic_numbers` contains an `iteration_limit` or `threshold` type:
+
+**Mandatory**: test at exactly `value - 1`, `value`, and `value + 1`.
+
+```
+BOUNDARY TEST EVIDENCE:
+  function: "<fn_id>"
+  magic_number_tested: <value>     # e.g. 65 (turn cadence)
+  source_at_N_minus_1: "<behavior>"  # e.g. "no callback triggered"
+  source_at_N:         "<behavior>"  # e.g. "ask_user called"
+  source_at_N_plus_1:  "<behavior>"  # e.g. "no callback triggered"
+  target_at_N_minus_1: "<behavior>"
+  target_at_N:         "<behavior>"
+  target_at_N_plus_1:  "<behavior>"
+  boundary_match: true / false
+```
+
+If `boundary_match: false` → the magic number was not correctly applied.
+Root cause category: `magic_number_decontextualized` or `control_flow_collapsed`.
+
+**When to apply**: check the IPO entry's `magic_numbers` before writing tests. If ANY entry
+has `type: iteration_limit` or `type: threshold`, boundary testing is mandatory.
+This test cannot be skipped by claiming "the happy path covers it."
+
 ### Precision Tolerance
 
 For floating-point comparisons:

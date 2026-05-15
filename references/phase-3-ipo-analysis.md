@@ -136,6 +136,112 @@ steps:
         origin: inferred_from_context
 ```
 
+### ⛔ Branch Coverage: Every `if/elif/else/for/while/try/except` is a Separate Step
+
+**The most common P3 failure**: a function with 4 branches is documented as 2 steps.
+Every conditional branch path must appear as its own `step` entry with its own `source_lines`.
+
+```yaml
+# WRONG — collapses branches:
+steps:
+  - step: 1
+    desc: "Handle turn-based callback logic"
+    source_lines: "120-180"
+
+# CORRECT — every branch is a step:
+steps:
+  - step: 1
+    desc: "Every 65 turns, outside plan mode: trigger ask_user"
+    source_lines: "122-128"
+    magic_numbers:
+      - value: 65
+        source_line: 122
+        type: iteration_limit
+        purpose: "65-turn cadence prevents context exhaustion; NOT 50 (earlier draft value)"
+        origin: inferred_from_context
+  - step: 2
+    desc: "In plan mode, every 5 turns (>=10): prompt to re-read plan file and confirm current step"
+    source_lines: "130-138"
+    magic_numbers:
+      - value: 5
+        source_line: 131
+        type: iteration_limit
+        purpose: "plan review cadence"
+        origin: inferred_from_context
+      - value: 10
+        source_line: 130
+        type: threshold
+        purpose: "minimum turns before plan review starts"
+        origin: inferred_from_context
+  - step: 3
+    desc: "In plan mode, over 90 turns: force ask_user regardless of cadence"
+    source_lines: "140-145"
+    magic_numbers:
+      - value: 90
+        source_line: 140
+        type: iteration_limit
+        purpose: "hard cap to prevent runaway plan execution"
+        origin: inferred_from_context
+```
+
+**Branch count check**: After filling steps, count them. If `steps_count < branch_count` from READ_EVIDENCE, branches are collapsed. Re-read and expand.
+
+### ⛔ Post-Construction Attribute Setting: Must Appear in Caller's side_effects
+
+Python pattern:
+```python
+agent = startSubagent(config)
+agent.inc_out = True      # line 47
+agent.verbose = False     # line 48
+```
+
+These two lines are NOT part of `startSubagent`'s body — they appear in the **caller**.
+They must be documented in the **caller's** `side_effects`:
+
+```yaml
+# In the CALLER's IPO entry:
+side_effects:
+  - "sets agent.inc_out = True on returned subagent [line 47]"
+  - "sets agent.verbose = False on returned subagent [line 48]"
+```
+
+AND the `startSubagent` IPO must note this in `translation_notes`:
+```yaml
+translation_notes: "Caller is responsible for setting inc_out=True and verbose=False after construction. Verify caller's IPO side_effects include these assignments."
+```
+
+**Rule**: After documenting any function that returns an object, scan the call sites for post-construction assignments. Every assignment is a side effect of the call site.
+
+### ⛔ Multi-Step Compound Processing: Each Processing Stage is a Separate Step
+
+Python pattern:
+```python
+content = get_html(url, text_only=True)
+if text_only:
+    content = smart_format(content, maxlen // 3)   # secondary truncation
+return content
+```
+
+The secondary truncation is a distinct processing step. It must NOT be merged with step 1:
+
+```yaml
+steps:
+  - step: 1
+    desc: "Fetch HTML content with text_only mode enabled"
+    source_lines: "34-36"
+  - step: 2
+    desc: "If text_only: apply secondary truncation at maxlen//3 to reduce HTML noise"
+    source_lines: "37-39"
+    magic_numbers:
+      - value: "maxlen // 3"
+        source_line: 38
+        type: threshold
+        purpose: "secondary truncation cap: 1/3 of primary limit to aggressively strip HTML overhead"
+        origin: inferred_from_context
+```
+
+**Rule**: Any `if condition: transform(x)` after a primary operation is a separate step. The condition is the step guard, the transform is the step body.
+
 ### magic_numbers — source_line is MANDATORY
 
 For EVERY numeric or string literal (except 0, 1, -1 as loop increments):
@@ -260,6 +366,9 @@ The self-verification report must appear in the AI's response — not silently i
 - [ ] Every side_effect has a line reference
 - [ ] `calls` graph populated (enables P4 topological ordering)
 - [ ] `non_deterministic: true` entries have `non_determinism_source`
+- [ ] Branch coverage: for every function, `steps_count >= branch_count` (READ_EVIDENCE `branch_count`)
+- [ ] Post-construction check: for every function returning an object, call sites scanned for `obj.attr = X` assignments; each found is in caller's `side_effects`
+- [ ] Stateful output marker: functions accumulating output across calls have `non_deterministic: false` AND at least one `side_effects` entry flagging the accumulation
 - [ ] Self-verification CHECK 1: PASS
 - [ ] Self-verification CHECK 2: PASS
 - [ ] Self-verification CHECK 3: PASS
@@ -279,7 +388,9 @@ The PGR-3 loop will:
 3. Verify every magic number has a non-zero `source_line`
 4. Verify every `inferred_invariant` contains the `[inferred from: ...]` evidence bracket
 5. Verify no entry has `translation_status: DONE` (translation happens in P4, not P3)
-6. Spot-check 5 random entries by re-reading source files and verifying `first_statement`/`last_statement`
-7. Fix any findings autonomously and re-audit from scratch until zero findings remain
+6. Verify branch coverage: for every entry, `steps_count >= READ_EVIDENCE.branch_count`; flag any entry where branches are collapsed
+7. Verify post-construction scan: for every entry whose `outputs` describe a returned object, confirm caller IPO entries exist and include `side_effects` for post-construction assignments
+8. Spot-check 5 random entries by re-reading source files and verifying `first_statement`/`last_statement`
+9. Fix any findings autonomously and re-audit from scratch until zero findings remain
 
 `phases.P3_ipo_analysis: DONE` is set by PGR-3 as its final action — never set it directly.
