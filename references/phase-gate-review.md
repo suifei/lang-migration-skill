@@ -355,6 +355,20 @@ A complete `ipo-registry.yaml` with every function documented and every field po
 - PASS: both match for all 5 entries
 - FINDING format: `PGR-3-F: entry id=<id> — first_statement "<recorded>" does not match actual line <N>: "<actual>"`
 
+**Check PGR-3-G: Branch coverage — steps_count ≥ branch_count**
+- For every entry in ipo-registry.yaml that has a `READ_EVIDENCE.branch_count` recorded:
+  - Count the number of entries in `process.steps`
+  - Verify `steps_count >= branch_count`
+- A collapsed entry is one where multiple conditional branches were merged into a single step
+- FINDING format: `PGR-3-G: entry id=<id> — steps_count=<s> < branch_count=<b>; branches collapsed`
+
+**Check PGR-3-H: Post-construction call-site scan**
+- For every entry whose `outputs` section describes a returned object or struct:
+  - Identify all direct callers of this function in the source project
+  - Verify each caller has an IPO entry in ipo-registry.yaml
+  - Verify each caller's `side_effects` includes any `obj.attr = X` assignments made immediately after the call
+- FINDING format: `PGR-3-H: caller <file>::<fn> calls <callee> but has no IPO entry / missing post-construction side_effects`
+
 ### What "fixed" means for PGR-3
 
 - Missing function: run Phase 3 analysis protocol for that function (READ_EVIDENCE + BEHAVIOR_PROOF + fill entry)
@@ -363,6 +377,8 @@ A complete `ipo-registry.yaml` with every function documented and every field po
 - Missing invariant bracket: re-read source and callers; write specific evidence for the invariant
 - Entry marked DONE: set back to `TODO`; translation happens in P4
 - Mismatched spot-check: re-analyze the specific function from scratch
+- Collapsed branches (PGR-3-G): re-read source function; expand steps to one-step-per-branch; record each branch's source_lines
+- Missing post-construction side_effects (PGR-3-H): read call sites; add `side_effects` entries to caller IPO; add `translation_notes` to callee IPO
 
 ---
 
