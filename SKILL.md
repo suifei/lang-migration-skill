@@ -61,16 +61,16 @@ without actually doing the work. Every phase has mechanisms to detect and preven
 | Fix | `retrospective-checklist.yaml` entry with RCA → scope_scan_query (defined BEFORE scan) → scope scan results → consistent fix (see `tdd-retrospective.md`) |
 | **PGR** | **Full audit report output in response** listing every item checked; each FINDING citing exact artifact (file path, field, value); each FIXED citing same artifact after change; `findings_count: 0` proven by enumerated item list; `phase_gates.PGR_N.passed_at` timestamp set only after zero-findings pass |
 
-**New in v1.1: TDD Retrospective Integration**
+**TDD Retrospective Integration**
 
-The **Retrospective Protocol** is now mandatory at every fix point:
+The **Retrospective Protocol** is mandatory at every fix point:
 - **Trigger**: Compilation error, vet failure, structural deviation, test failure
 - **Steps**: RCA (root cause analysis) → Checklist rule → Scope scan → Consistent fix
 - **Output**: Entry in `retrospective-checklist.yaml` with root cause category and generalized rule
 - **Scope scan constraint**: `scope_scan_query` MUST be written before scanning (prevents post-hoc bias)
 - **Impact**: After each fix, full test suite is re-run; new failures each trigger independent retrospectives
 
-See [v1.1 Retrospective Integration](#retrospective-integration-v11) below and `references/tdd-retrospective.md`.
+See [Retrospective Protocol](#retrospective-protocol) below and `references/tdd-retrospective.md`.
 
 **Self-Verification is not optional.** Each phase that has a Self-Verification Protocol
 must run it and output the report before advancing. The report must appear in the AI's
@@ -154,7 +154,7 @@ Each phase has a detailed reference file. Load it when entering that phase:
 | P4    | `references/phase-4-translation.md` |
 | P5    | `references/phase-5-verification.md` |
 | P6    | `references/phase-6-gap-report.md` |
-| **Fix (v1.1)** | **`references/tdd-retrospective.md` ← mandatory on every fix in P4/P5** |
+| **Fix** | **`references/tdd-retrospective.md` ← mandatory on every fix in P4/P5** |
 | **PGR** | **`references/phase-gate-review.md` ← mandatory between every phase transition** |
 
 ---
@@ -292,12 +292,11 @@ For full field definitions of all five YAML files, see: `references/schemas.md`
 
 ---
 
-## Retrospective Integration (v1.1)
+## Retrospective Protocol
 
-**New: Mandatory TDD Retrospectives on every fix in P4 and P5**
+Every fix in P4 or P5 — compilation error, vet failure, test failure, structural deviation — mandatorily triggers the TDD Retrospective Protocol. A fix without a retrospective is a local patch. A fix with a retrospective is a systemic improvement.
 
-This release formalizes the integration of the TDD Retrospective Protocol into the core pipeline.
-See `CHANGELOG.md` for full details.
+See `references/tdd-retrospective.md` for the full protocol.
 
 ### Why Root Cause, Not Phenomenon?
 
@@ -320,8 +319,7 @@ and specified IndexMap/[]Entry as compensation. Translation used map[K]V, silent
 When the next function translates a Python dict, the AI can check the retrospective **before**
 translating, preventing the error instead of fixing it after failure.
 
-**This is the self-improving aspect of v1.1**: Each migration's lessons become infrastructure
-for the next migration of the same language pair.
+Each migration's lessons become infrastructure for the next migration of the same language pair.
 
 ### Core Design Principles
 
