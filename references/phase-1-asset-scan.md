@@ -143,3 +143,22 @@ Present the block using the standard blocking protocol from `SKILL.md`.
 - [ ] All test fixture files are `direct_use`
 - [ ] All documentation files are `reference_only` or `preserve`
 - [ ] `depends_on_ecosystem` is populated for all `translate` files
+
+---
+
+## Phase Exit: Trigger PGR-1
+
+When you believe P1 is complete, do NOT mark it DONE yet.
+
+Load `references/phase-gate-review.md` and run PGR-1 using the audit criteria defined there.
+Only set `phases.P1_asset_scan: DONE` after PGR-1 passes with zero findings.
+
+The PGR-1 loop will:
+1. Verify every source file is in `asset-inventory.yaml` (including a fresh re-scan)
+2. Verify every entry has a non-placeholder `purpose`
+3. Verify every entry has a confirmed `migration_strategy`
+4. Verify every entry has a valid `status`
+5. Verify `by_strategy` counts match actual entry counts
+6. Fix any findings autonomously and re-audit from scratch until zero findings remain
+
+`phases.P1_asset_scan: DONE` is set by PGR-1 as its final action — never set it directly.

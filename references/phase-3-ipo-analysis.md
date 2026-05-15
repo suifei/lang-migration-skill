@@ -263,3 +263,23 @@ The self-verification report must appear in the AI's response — not silently i
 - [ ] Self-verification CHECK 1: PASS
 - [ ] Self-verification CHECK 2: PASS
 - [ ] Self-verification CHECK 3: PASS
+
+---
+
+## Phase Exit: Trigger PGR-3
+
+When you believe P3 is complete, do NOT mark it DONE yet.
+
+Load `references/phase-gate-review.md` and run PGR-3 using the audit criteria defined there.
+Only set `phases.P3_ipo_analysis: DONE` after PGR-3 passes with zero findings.
+
+The PGR-3 loop will:
+1. Verify every function from translate-strategy files is in `ipo-registry.yaml` (or explicitly marked SKIP)
+2. Verify every entry has at least one process step with non-empty `source_lines`
+3. Verify every magic number has a non-zero `source_line`
+4. Verify every `inferred_invariant` contains the `[inferred from: ...]` evidence bracket
+5. Verify no entry has `translation_status: DONE` (translation happens in P4, not P3)
+6. Spot-check 5 random entries by re-reading source files and verifying `first_statement`/`last_statement`
+7. Fix any findings autonomously and re-audit from scratch until zero findings remain
+
+`phases.P3_ipo_analysis: DONE` is set by PGR-3 as its final action — never set it directly.
