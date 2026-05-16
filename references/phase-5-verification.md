@@ -196,7 +196,105 @@ verification:
 
 ## Regression Strategy + TDD Retrospective Protocol
 
-When a Track A structural deviation or Track B test failure is found and fixed:
+When a Track A structural deviation or Track B test failure is found:
+
+### ⛔ STEP 0: Bug Triage — Mandatory Before Any Fix
+
+**Do not touch the target code until triage is complete.**
+
+A failing test or structural deviation has four possible root locations.
+Misidentifying the location leads to fixing the wrong thing — or deleting
+correct code that faithfully mirrors the source.
+
+Execute this triage sequence in order. Stop at the first conclusive answer.
+
+---
+
+#### Triage Step T1: Map the failure to the IPO registry
+
+```
+T1 TRIAGE:
+  failing_function: "<fn_id in ipo-registry.yaml>"
+  failing_step:     "<which process.step does the mismatch correspond to?>"
+  ipo_source_lines: "<source_lines from that step>"
+  target_matches_ipo_step: true / false
+```
+
+- If `target_matches_ipo_step: false` → **Translation Error** — target deviates from IPO spec → go to Step 1 (Fix)
+- If `target_matches_ipo_step: true` → target code is correct per IPO spec → continue to T2
+
+---
+
+#### Triage Step T2: Read the actual source lines
+
+Using `ipo_source_lines`, read the SOURCE file at those exact lines.
+
+```
+T2 TRIAGE:
+  source_file_read: "<file>:<line_start>-<line_end>"
+  source_behavior: "<what the source code does at those lines>"
+  target_behavior: "<what the target code does>"
+  source_matches_target: true / false
+```
+
+- If `source_matches_target: true` → **Source-Faithful Behavior** — the target correctly reproduces source behavior; the test expectation may be wrong → go to T3-ANNOTATE
+- If `source_matches_target: false` → The IPO registry recorded wrong lines (`ipo_source_lines_wrong`) → flag and go to Step 1 (Fix with retrospective category `ipo_source_lines_wrong`)
+
+---
+
+#### Triage Step T3: Investigate the consumer / caller path
+
+Before concluding anything is wrong, verify:
+
+```
+T3 TRIAGE:
+  callers_checked: ["<file>:<fn> calls this function"]
+  test_fixture_format_correct: true / false   # does fixture match target lang format?
+  caller_passes_correct_args: true / false
+  test_exercises_correct_behavior: true / false
+  consumer_path_verdict: CONSUMER_ERROR / ECOSYSTEM_DIFFERENCE / CONFIRMED_TRANSLATION_ERROR
+```
+
+- `CONSUMER_ERROR` — the bug is in the caller, test fixture, or test assertion — fix the consumer, not the function
+- `ECOSYSTEM_DIFFERENCE` — the difference is a known and documented gap — verify compensation strategy is applied correctly; if yes, update test expectation to match target semantics
+- `CONFIRMED_TRANSLATION_ERROR` — none of the above apply; the function itself is wrong → go to Step 1 (Fix + retrospective)
+
+---
+
+#### T3-ANNOTATE: Source-Faithful Behavior Resolution
+
+When T2 confirms the target faithfully reproduces source behavior:
+
+1. **Add a comment in the target code** at the relevant line(s):
+   ```go
+   // SOURCE-FAITHFUL: <description of behavior>
+   // Source: <source_file>:<line_range> — matches Python behavior exactly.
+   // If this behavior needs to change, change the source first and re-run P3.
+   ```
+
+2. **Add a `known_source_behaviors` entry to the IPO registry**:
+   ```yaml
+   known_source_behaviors:
+     - desc: "<what this behavior does>"
+       source_file: "<file>"
+       source_lines: "<start>-<end>"
+       intentional: true     # true = deliberate design; false = source has a bug we're faithfully reproducing
+       annotation_added: true
+       annotation_location: "<target_file>:<line>"
+   ```
+
+3. **If `intentional: false`** (source has a genuine bug being faithfully reproduced):
+   - Do NOT silently fix it in the target — that creates behavioral divergence
+   - Set `current_task.status: BLOCKED` with `human_input_required: "Source has bug at <lines>. Fix source and re-run P3? Or accept known deviation?"`
+   - Wait for human decision before proceeding
+
+4. **Fix the test** (if source-faithful is the verdict):
+   - Update the test assertion to match source semantics
+   - Add a comment in the test: `// Source-faithful: tests source behavior, not ideal behavior`
+
+5. **No retrospective entry is required** for source-faithful resolutions — they are not translation errors.
+
+---
 
 ### Step 1: Diagnose
 - **Track A failure**: which IPO checklist item failed? Which step/magic_number/invariant?
@@ -250,6 +348,10 @@ Before marking P5 DONE:
 - [ ] All functions: `translation_status: DONE`
 - [ ] All functions: `verification.structural: PASS`
 - [ ] All functions: `verification.behavioral: PASS` (or `BLOCKED` with documented real dependency)
+- [ ] Every Track B failure went through Bug Triage (T1→T2→T3) before any fix was applied
+- [ ] Every `source_faithful_behavior` finding has a `SOURCE-FAITHFUL` comment in target code AND `known_source_behaviors` entry in IPO registry
+- [ ] Every `consumer_error` finding has its fix in the caller/test, NOT in the translated function
+- [ ] No `known_source_behaviors` with `intentional: false` is unresolved (must be BLOCKED or human-approved)
 - [ ] Target project builds cleanly (no warnings treated as errors)
 - [ ] Original CI pipeline (adapted) passes on the target project
 - [ ] `migration-state.yaml` final stats are updated

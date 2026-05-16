@@ -147,3 +147,25 @@ inferred_invariants:
   - "input list is non-empty (would divide by zero otherwise)"
   - "file at path is UTF-8 encoded (no encoding specified)"
 ```
+
+### `known_source_behaviors` format
+
+Behaviors in the target code that are sometimes mistaken for bugs during P5 verification,
+but actually faithfully reproduce the source code's design. Populated during P5 triage
+when T2 verdict is `source_matches_target: true`.
+
+```yaml
+known_source_behaviors:
+  - desc: "Returns nil on cache miss instead of raising an error — callers must guard"
+    source_file: "cache.py"
+    source_lines: "47-52"
+    intentional: true       # true = deliberate design choice in source
+                            # false = source has a bug; target faithfully reproduces it
+    annotation_added: true  # SOURCE-FAITHFUL comment added in target code
+    annotation_location: "internal/cache/cache.go:89"
+    human_decision_required: false   # only true when intentional: false (source bug)
+```
+
+**`intentional: false` triggers a BLOCK**: if the source has a genuine bug and the target
+faithfully reproduces it, a human must decide whether to fix source + re-run P3, or accept
+the known deviation. The block must not be silently resolved by the AI.

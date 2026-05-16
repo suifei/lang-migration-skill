@@ -74,7 +74,19 @@ Root causes always belong to one of these categories:
 | `side_effect_dropped` | A documented side effect was not replicated | cache mutation, global state write |
 | `ipo_source_lines_wrong` | P3 source_lines were incorrect; translation based on wrong understanding | wrong line range → different algorithm segment translated |
 | `test_fixture_mismatch` | Test fixture format changed between source and target | binary fixture loaded differently |
+| `consumer_error` | Bug is in caller, test fixture, or test assertion — not in the translated function | test passes wrong arg type; fixture uses Python dict where Go expects slice |
+| `source_faithful_behavior` | Behavior matches source exactly; the assumption that it's a bug is wrong | Source returns nil on cache miss; test expected error — source is correct by design |
 | `other` | Root cause does not fit above — describe precisely |
+
+**⛔ Special resolution path for `source_faithful_behavior` and `consumer_error`:**
+
+These two categories do NOT trigger the standard Fix → Scope Scan → Consistent Fix loop.
+They are resolved differently:
+
+- `source_faithful_behavior`: add `SOURCE-FAITHFUL` comment in target; add `known_source_behaviors` entry to IPO registry; fix the test assertion; if source has a genuine bug, BLOCK for human decision. **No code change to the translated function.**
+- `consumer_error`: fix the caller, test fixture, or test assertion only. **No code change to the translated function.** Add a retrospective entry explaining what the consumer got wrong, so future test migrations avoid the same mistake.
+
+The retrospective entry is still required for these categories — it documents what happened, prevents the same misdiagnosis in future, and may reveal a pattern in how tests are being migrated.
 
 ### Q3: Generalization (泛化规律)
 *What is the general pattern this root cause represents?* — stated as a rule:
