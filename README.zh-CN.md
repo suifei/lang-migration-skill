@@ -26,14 +26,19 @@ Skillhub:[https://skillhub.cn/skills/lang-migration](https://skillhub.cn/skills/
 [![阶段: P0–P6](https://img.shields.io/badge/Phases-P0_through_P6-green)](#六阶段流水线)
 [![防作弊](https://img.shields.io/badge/Anti--Cheating-Protocol_Enforced-red)](#核心创新证据义务)
 [![兼容工具](https://img.shields.io/badge/Works_With-Claude_Code_|_Cursor_|_Copilot_|_OpenCode-purple)](#运行环境)
-[![版本: 1.2](https://img.shields.io/badge/Version-1.2-blue)](#阶段门禁复盘-pgr--v12)
+[![版本: 1.3](https://img.shields.io/badge/Version-1.3-blue)](#最新更新)
 
 **[English](README.md) | 中文**
 
 *跨编程语言迁移任何开源代码库 — 保证结构完整性、持久化状态管理，并提供AI实际完成工作的可验证证明。*
 
-### ✨ **v1.2 新增：阶段门禁复盘（PGR）**
+### ✨ **最新更新**
 
+**v1.3 — Bug溯源分类协议 + 真实项目验证**
+P5中所有测试失败，在执行任何修复之前，必须通过强制性的3步溯源分类。五种分类结果中，只有1种会修改翻译函数。
+新增4个根因类别。已在真实Python→Go迁移项目（GenericAgent → malaclaw）中完成验证。[了解更多 →](#bug溯源分类协议先分类再修复)
+
+**v1.2 — 阶段门禁复盘（PGR）**
 每个阶段流转前，必须通过**自主自审循环**才能推进。AI枚举所有预期产出，逐项审计，修复发现的问题，再次审计——直至**零发现**。
 只有这时，阶段才被标记为完成。全程无需人类干预，杜绝橡皮图章式推进。[了解更多 →](CHANGELOG.md#v12--2026-05-15)
 
@@ -43,7 +48,7 @@ Skillhub:[https://skillhub.cn/skills/lang-migration](https://skillhub.cn/skills/
 
 ## 无人谈论的问题
 
-当开发者要求LLM"将我的Python项目迁移到Go"时，通常会发生这三种情况之一：
+当开发者要求LLM"将我的Python项目迁移到Go"时，通常会发生这四种情况之一：
 
 1. **LLM生成看似合理的代码，但无声地丢失行为。** 类型语义、精度契约、排序不变量 — 全部消失。没人注意到，直到线上出问题。
 
@@ -51,7 +56,9 @@ Skillhub:[https://skillhub.cn/skills/lang-migration](https://skillhub.cn/skills/
 
 3. **上下文窗口崩溃。** 50,000行代码无法装进任何单个提示。LLM在翻译到一半时失去连贯性，整个迁移变成了一场"到底翻译了什么"的考古学。
 
-**lang-migration** 是对这三种失败模式的结构化响应 — 不是通过更好的提示词，而是通过正式的方法论。
+4. **LLM修复了正确的代码。** 当测试失败时，AI修改翻译函数——即便这个函数完全正确地复现了源码行为。真正的问题在测试夹具、调用方，或者源码设计中某个从未写下来的模型能力假设。这次"修复"反而引入了原本不存在的行为偏差。
+
+**lang-migration** 是对这四种失败模式的结构化响应 — 不是通过更好的提示词，而是通过正式的方法论。
 
 ---
 
@@ -311,6 +318,69 @@ current_task:
 - **推断的不变量塑造正确性。** 代码通常工作是因为调用者遵循不成文的规则。一个在没有保护的情况下除以 `len(data)` 的函数工作只是因为每个调用者这些年来一直传递非空列表。转译器无法发现这个。我们的IPO分析要求在翻译前记录它。
 
 - **建筑意图丢失。** 当Python类使用 `collections.OrderedDict` 时，作者选择了有序迭代。转译器将其映射到 `map[K]V` 并无声地丢失排序契约。我们的生态系统映射要求这个差异被记录和补偿。
+
+---
+
+## Bug溯源分类协议：先分类再修复
+
+迁移中最昂贵的错误是**修复一段本来正确的代码**。
+
+当迁移项目的测试失败时，朴素的反应是修改翻译函数。但翻译函数可能完全正确——它忠实地复现了源码的行为。问题可能出在别处：测试断言、调用方，或者源码设计中对特定模型能力的隐式假设，而目标环境并不具备这种能力。
+
+**lang-migration** 在任何修复之前，强制执行3步溯源分类：
+
+```
+T1：映射到IPO规范 — 目标代码是否符合已记录的规范？
+        是 → 函数正确；继续T2
+        否 → 确认翻译错误 → 修复 + 事后复盘
+
+T2：回读实际源码行 — 源码是否表现出相同行为？
+        是 → 源码忠实行为：加注释，不修改代码；修正测试预期
+        否 → IPO分析记录了错误行号 → 重新分析P3，再重新翻译
+
+T3：排查消费端/调用方路径
+        CONSUMER_ERROR（调用方问题）    → 只修调用方或测试
+        IMPLICIT_CAPABILITY_GAP（能力假设差距）→ 只修集成层
+        ECOSYSTEM_DIFFERENCE（生态差异）→ 验证补偿策略
+        CONFIRMED_TRANSLATION_ERROR（确认翻译错误）→ 修复 + 事后复盘
+```
+
+五种分类结果中，只有一种会修改翻译函数。其他四种在集成层、调用方或测试中解决——不动那个其实翻译正确的函数。
+
+### 真实项目验证：conductor案例
+
+在 **GenericAgent → malaclaw** 的Python→Go迁移中，conductor agent无法读取用户消息。第一个"修复"直接把消息内容嵌入system prompt——改变了源码设计。
+
+正确的溯源分析：
+
+- **T1**：Go版 `conductorPrompt` 与 `conductor.py:277-279` 完全吻合。✅ 函数正确。
+- **T2**：源码：`unread = sum(1 for m in chat_messages if not m.get("read"))` — 只传数量，不含消息正文。目标行为相同。**源码忠实行为 — 不要改函数。**
+- **T3**：Python设计假设消费方（Claude）会推断"看到 `unread > 0` 就调 `GET /chat`"。Go部署跑的是Qwen3.5，需要显式的 `code_run` 示例才会触发同样的动作。**分类：`implicit_capability_assumption`** — 修system prompt，不动翻译函数。
+
+第一个"修复"被回退。system prompt补充了显式的 `GET /chat?last=20` 示例和触发规则。`conductorPrompt` 的逻辑——只传数量——完整保留，与Python源码设计一致。
+
+这类问题现在有了专属根因类别：**`implicit_capability_assumption`**——源码设计依赖消费方的推理能力，而目标消费方不具备。记录在IPO规范的 `inferred_invariants` 中；在集成层解决。
+
+### 12个根因类别
+
+迁移过程中发现的每个问题，都归入12个类别之一。前9个产生代码修复，最后3个**不修改翻译函数**：
+
+| 类别 | 解决方式 |
+|---|---|
+| `ecosystem_gap_unapplied` | 代码修复 + 范围扫描 |
+| `semantic_contract_lost` | 代码修复 + 范围扫描 |
+| `invariant_not_transferred` | 代码修复 + 范围扫描 |
+| `magic_number_decontextualized` | 代码修复 + 范围扫描 |
+| `control_flow_collapsed` | 代码修复 + 范围扫描 |
+| `error_class_narrowed` | 代码修复 + 范围扫描 |
+| `side_effect_dropped` | 代码修复 + 范围扫描 |
+| `ipo_source_lines_wrong` | 重新P3分析，再重新翻译 |
+| `test_fixture_mismatch` | 只修夹具 |
+| **`consumer_error`** | **只修调用方/测试 — 函数正确** |
+| **`source_faithful_behavior`** | **加注释 + 修测试 — 函数正确** |
+| **`implicit_capability_assumption`** | **只修集成层 — 函数正确** |
+
+这个分类体系阻止了最常见的AI迁移失败模式：因为测试失败而自信地修改了本来正确的代码。
 
 ---
 
