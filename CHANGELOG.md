@@ -5,7 +5,132 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
-## [v1.2] — 2026-05-15
+## [v1.3] — 2026-05-16
+
+### Major Features
+
+#### 🔍 Bug Triage Protocol — Classify Before Fix
+
+Every P5 test failure and structural deviation now goes through a mandatory 3-step
+triage before any fix is applied. The key insight: **not every test failure is a
+translation error.** Four of five possible verdicts resolve without modifying the
+translated function.
+
+**Triage sequence:**
+
+```
+T1: Map to IPO registry — does target code match the documented spec?
+T2: Read actual source lines — does source exhibit the same behavior?
+T3: Investigate consumer/caller path — where is the real problem?
+```
+
+**Five verdicts:**
+
+| Verdict | Action |
+|---|---|
+| `SOURCE_FAITHFUL` | Add `SOURCE-FAITHFUL` comment; fix test expectation; do NOT change function |
+| `CONSUMER_ERROR` | Fix caller/test only; do NOT change function |
+| `IMPLICIT_CAPABILITY_GAP` | Fix integration layer only; do NOT change function |
+| `ECOSYSTEM_DIFFERENCE` | Verify compensation strategy; may update test expectation |
+| `CONFIRMED_TRANSLATION_ERROR` | Fix function + mandatory Retrospective |
+
+**New `known_source_behaviors` field in IPO registry** — tracks behaviors that are
+intentional source design, annotated in target code with `SOURCE-FAITHFUL` comments.
+If `intentional: false` (source has a real bug), a human decision block is mandatory.
+
+#### 📋 Four New Root Cause Categories
+
+The Retrospective Protocol's root cause table grows from 9 to 12:
+
+| New Category | Description | Resolution |
+|---|---|---|
+| `consumer_error` | Bug is in caller, test fixture, or assertion — not in translated function | Fix consumer only |
+| `source_faithful_behavior` | Behavior matches source exactly; test assumption was wrong | Annotate + fix test |
+| `implicit_capability_assumption` | Source design relied on consumer's implicit inference (e.g. strong LLM); target consumer needs it made explicit | Fix integration layer |
+
+The last three categories never trigger the scope-scan fix loop — they do not modify
+the translated function.
+
+#### 🔬 P3 IPO Analysis: Three New Mandatory Rules
+
+Derived from root cause analysis of 5 real migration bugs (B1–B5), all traced to
+P3 under-specification:
+
+1. **Branch Coverage Mandate** — every `if/elif/else/for/while/try/except` branch must
+   be its own `process.step` with its own `source_lines`. `steps_count < branch_count`
+   from READ_EVIDENCE = branches collapsed = task fraud.
+
+2. **Post-Construction Attribute Setting** — `obj.attr = X` lines that appear in the
+   **caller** after construction are NOT part of the constructor's body. They must be
+   in the caller's `side_effects` AND noted in the callee's `translation_notes`.
+   After documenting any function returning an object, call sites must be scanned.
+
+3. **Multi-Step Compound Processing** — any `if condition: transform(x)` after a
+   primary operation is a mandatory separate step, not optional commentary.
+   Each secondary transform must have its own `source_lines` and `magic_numbers`.
+
+#### 🧪 P5 Verification: Two New Mandatory Testing Protocols
+
+1. **Stateful / Accumulating Function Differential Testing** — for functions with
+   `side_effects` indicating state mutation or accumulation: run N ≥ 20 iterations,
+   compare incremental **deltas** between iterations, not just the final snapshot.
+   A snapshot match can mask per-iteration drift.
+
+2. **Boundary-Value Testing for Numeric Threshold Constants** — for any function
+   whose IPO `magic_numbers` contains `iteration_limit` or `threshold` type: test at
+   exactly `value - 1`, `value`, and `value + 1`. Boundary mismatch = magic number
+   not correctly applied.
+
+#### 🚩 Known Migration Traps (python-go.md)
+
+Five documented patterns for Python→Go migrations, each with Python example,
+failure mode, detection rule, and root cause category:
+
+- **Trap 1**: Post-Construction Attribute Setting (`side_effect_dropped`)
+- **Trap 2**: Multi-Branch Turn-Based Callbacks (`control_flow_collapsed`)
+- **Trap 3**: Compound Processing with Secondary Transform (`control_flow_collapsed`)
+- **Trap 4**: dict Ordering (`ecosystem_gap_unapplied`)
+- **Trap 5**: Implicit Model Capability Assumption (`implicit_capability_assumption`)
+
+Trap 5 is based on a real production bug: Python conductor agent assumed Claude
+would infer `GET /chat` from an unread count; Go deployment with Qwen3.5 needed
+an explicit `code_run` example. The translated function was correct throughout.
+
+#### 🔄 PGR-3 Audit: Two New Checks
+
+- **PGR-3-G**: Verify `steps_count >= branch_count` for every IPO entry
+- **PGR-3-H**: Verify post-construction call-site scan for every entry returning an object
+
+---
+
+### Updated Components
+
+| File | Changes |
+|------|---------|
+| `SKILL.md` | Retrospective trigger: P5 requires Bug Triage before fix; root cause categories: Nine → Twelve; P5 flow diagram updated with triage branch tree |
+| `references/phase-5-verification.md` | ⛔ Bug Triage Protocol section (T1/T2/T3 + T3-ANNOTATE); Stateful differential testing; Boundary-value testing; Final Checklist +4 items |
+| `references/phase-3-ipo-analysis.md` | Three ⛔ rule sections (branch coverage, post-construction, compound steps); Quality Checklist +3 items; PGR-3 loop +2 checks |
+| `references/phase-gate-review.md` | PGR-3-G and PGR-3-H checks; "fixed" definitions extended |
+| `references/tdd-retrospective.md` | Three new root cause categories; special resolution path for non-fix verdicts |
+| `references/schemas.md` | `known_source_behaviors` field spec for ipo-registry.yaml |
+| `references/lang-pairs/python-go.md` | ⛔ Known Migration Traps section (Trap 1–5) |
+| `README.md` | v1.3 badge; v1.3 announcement; 4th failure mode; Bug Triage Protocol section |
+| `README.zh-CN.md` | Same updates in Chinese |
+
+---
+
+### Migration Path (v1.2 → v1.3)
+
+**No breaking changes.**
+
+- All existing migration YAML files remain valid
+- `known_source_behaviors` is a new optional field in IPO entries; add only when P5 triage finds source-faithful behaviors
+- New root cause categories are additive; existing retrospective entries remain valid
+- Bug Triage is mandatory for new P5 sessions; retroactively applying it to prior sessions is optional but recommended
+
+---
+
+
 
 ### Major Features
 
@@ -179,6 +304,7 @@ block-on-uncertainty protocol.
 
 | Version | Tag | Date | Highlights |
 |---------|-----|------|-----------|
+| v1.3 | `v1.3` | 2026-05-16 | Bug Triage Protocol; 12 root cause categories; P3 branch/post-construction rules; P5 stateful/boundary tests; 5 Known Migration Traps |
 | v1.2 | `v1.2` | 2026-05-15 | Phase Gate Review (PGR); 5th workspace template; phase-0-bootstrap.md; 11 quality fixes |
 | v1.1 | `v1.1` | 2026-05-15 | TDD Retrospective Integration into P4/P5 |
 | v1.0 | `v1.0` | 2026-05-01 | Initial stable release |

@@ -24,15 +24,21 @@
 [![Anti-Cheating](https://img.shields.io/badge/Anti--Cheating-Protocol_Enforced-red)](#the-evidence-obligation-protocol)
 [![Works With](https://img.shields.io/badge/Works_With-Claude_Code_|_Cursor_|_Copilot_|_OpenCode-purple)](#runtime-environments)
 [![ClawHub](https://clawhub.ai/favicon.ico)](https://clawhub.ai/suifei/lang-migration)
-[![Version: 1.2](https://img.shields.io/badge/Version-1.2-blue)](#phase-gate-review-pgr--v12)
+[![Version: 1.3](https://img.shields.io/badge/Version-1.3-blue)](#whats-new)
 
 **English | [中文](README.zh-CN.md)**
 
 *Migrate any open-source codebase across programming languages — with structural fidelity,
 persistent state, and verifiable proof that the AI actually did the work.*
 
-### ✨ **NEW in v1.2: Phase Gate Review (PGR)**
+### ✨ **What's New**
 
+**v1.3 — Bug Triage Protocol + Real-World Validation**
+Every P5 test failure now goes through a mandatory 3-step triage before any fix is attempted.
+Only 1 of 5 verdicts leads to modifying the translated function. Four new root cause categories.
+Validated against a real Python→Go migration (GenericAgent → malaclaw). [Learn more →](#bug-triage-protocol-classify-before-fix)
+
+**v1.2 — Phase Gate Review (PGR)**
 Every phase transition now requires passing an **autonomous self-auditing loop** before advancing.
 The AI enumerates all expected outputs, audits each one, fixes any gap, and re-audits — until **zero findings**.
 Only then is the phase marked DONE. No human involvement. No rubber-stamping. [Learn more →](CHANGELOG.md#v12--2026-05-15)
@@ -47,7 +53,7 @@ Skillhub:[https://skillhub.cn/skills/lang-migration](https://skillhub.cn/skills/
 
 ## The Problem Nobody Talks About
 
-When developers ask an LLM to "migrate my Python project to Go," one of three things happens:
+When developers ask an LLM to "migrate my Python project to Go," one of four things happens:
 
 1. **The LLM produces plausible-looking code that silently drops behavior.** Type semantics, precision contracts, ordering invariants — gone. No one notices until production.
 
@@ -55,7 +61,9 @@ When developers ask an LLM to "migrate my Python project to Go," one of three th
 
 3. **The context window collapses.** A 50,000-line codebase cannot fit in any single prompt. The LLM loses coherence halfway through, and the migration becomes an archeological exercise in figuring out what was and wasn't translated.
 
-**lang-migration** is a structured response to all three failure modes — not through better prompting, but through formal methodology.
+4. **The LLM fixes the wrong thing.** When a test fails, the AI modifies the translated function — even when that function correctly mirrors the source. The real problem was in the test fixture, the caller, or an implicit model-capability assumption that was never written down. The fix introduces behavioral divergence that didn't exist before.
+
+**lang-migration** is a structured response to all four failure modes — not through better prompting, but through formal methodology.
 
 ---
 
@@ -315,6 +323,69 @@ They fail systematically when:
 - **Inferred invariants shape correctness.** Code often works because callers follow unwritten rules. A function that divides by `len(data)` without a guard works only because every caller has been passing non-empty lists for years. Transpilers cannot discover this. Our IPO analysis requires it to be documented before translation.
 
 - **Architectural intent is lost.** When a Python class uses a `collections.OrderedDict`, the author chose ordered iteration. A transpiler maps it to `map[K]V` and loses the ordering contract silently. Our ecosystem map requires this gap to be documented and compensated.
+
+---
+
+## Bug Triage Protocol: Classify Before Fix
+
+The most expensive mistake in a migration is **fixing code that was correct**.
+
+When a test fails in the migrated project, the naive response is to modify the translated function. But the translated function may be exactly right — faithfully reproducing the source's behavior. The problem may lie elsewhere: in the test assertion, in the caller, in how the source design assumed a specific model capability that the target environment doesn't have.
+
+**lang-migration** enforces a mandatory 3-step triage before any fix is applied:
+
+```
+T1: Map to IPO registry — does the target code match the documented spec?
+        YES → function is correct; continue to T2
+        NO  → confirmed translation error → Fix + Retrospective
+
+T2: Read the actual source lines — does the source exhibit the same behavior?
+        YES → source-faithful: annotate, don't fix; update test expectation
+        NO  → IPO analysis recorded wrong lines → fix P3, then re-translate
+
+T3: Investigate the consumer / caller path
+        CONSUMER_ERROR              → fix caller or test only
+        IMPLICIT_CAPABILITY_GAP     → fix integration layer only
+        ECOSYSTEM_DIFFERENCE        → verify compensation strategy
+        CONFIRMED_TRANSLATION_ERROR → Fix + Retrospective
+```
+
+Only one of five verdicts results in modifying the translated function. The other four resolve in the integration layer, the caller, or the test — without touching the function that was, in fact, correctly translated.
+
+### Real-World Validation: The Conductor Case
+
+In a Python→Go migration of **GenericAgent → malaclaw**, the conductor agent failed to read incoming user messages. The first "fix" embedded message content directly into the system prompt — changing the source design.
+
+The correct triage:
+
+- **T1**: Go `conductorPrompt` matched `conductor.py:277-279` exactly. ✅ Function is correct.
+- **T2**: Source reads: `unread = sum(1 for m in chat_messages if not m.get("read"))` — count only, no message body. Target behavior identical. **Source-faithful — do not change the function.**
+- **T3**: The Python design assumed the consumer (Claude) would infer "call `GET /chat` when `unread > 0`." The Go deployment ran Qwen3.5, which needs an explicit `code_run` example to trigger the same action. **Verdict: `implicit_capability_assumption`** — fix the system prompt, not the translated function.
+
+The first "fix" was reverted. The system prompt was strengthened with an explicit `GET /chat?last=20` example and a trigger rule. The `conductorPrompt` logic — count only — was preserved exactly as the Python source designed it.
+
+This class of bug is now its own root cause category: **`implicit_capability_assumption`** — source design relied on consumer inference ability that the target consumer lacks. Documented in the IPO registry as an `inferred_invariant`; resolved in the integration layer.
+
+### The 12 Root Cause Categories
+
+Every bug found during migration is classified into one of 12 categories. The first nine produce code fixes. The last three resolve **without touching the translated function**:
+
+| Category | Resolution |
+|---|---|
+| `ecosystem_gap_unapplied` | Code fix + scope scan |
+| `semantic_contract_lost` | Code fix + scope scan |
+| `invariant_not_transferred` | Code fix + scope scan |
+| `magic_number_decontextualized` | Code fix + scope scan |
+| `control_flow_collapsed` | Code fix + scope scan |
+| `error_class_narrowed` | Code fix + scope scan |
+| `side_effect_dropped` | Code fix + scope scan |
+| `ipo_source_lines_wrong` | Re-run P3, then re-translate |
+| `test_fixture_mismatch` | Fix fixture only |
+| **`consumer_error`** | **Fix caller/test only — function is correct** |
+| **`source_faithful_behavior`** | **Annotate + fix test — function is correct** |
+| **`implicit_capability_assumption`** | **Fix integration layer — function is correct** |
+
+This classification prevents the most common AI migration failure mode: confidently modifying correct code because a test failed.
 
 ---
 

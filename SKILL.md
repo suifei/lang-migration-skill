@@ -294,7 +294,9 @@ For full field definitions of all five YAML files, see: `references/schemas.md`
 
 ## Retrospective Protocol
 
-Every fix in P4 or P5 — compilation error, vet failure, test failure, structural deviation — mandatorily triggers the TDD Retrospective Protocol. A fix without a retrospective is a local patch. A fix with a retrospective is a systemic improvement.
+In P5, **every** test failure or structural deviation must pass through the Bug Triage Protocol first (see `references/phase-5-verification.md`) before any fix is applied. Triage classifies the failure into one of five verdicts — only `CONFIRMED_TRANSLATION_ERROR` proceeds to a code fix; the other verdicts resolve in the integration layer, caller, or test without touching the translated function.
+
+After a fix is applied (any phase), the TDD Retrospective Protocol is mandatory. A fix without a retrospective is a local patch. A fix with a retrospective is a systemic improvement.
 
 See `references/tdd-retrospective.md` for the full protocol.
 
@@ -325,7 +327,7 @@ Each migration's lessons become infrastructure for the next migration of the sam
 
 #### 1. Root Cause Categories
 
-Nine predefined categories force abstract thinking:
+Twelve predefined categories force abstract thinking:
 - `ecosystem_gap_unapplied` — known gap was not applied
 - `semantic_contract_lost` — implicit contract not preserved
 - `invariant_not_transferred` — inferred invariant missing
@@ -335,9 +337,14 @@ Nine predefined categories force abstract thinking:
 - `side_effect_dropped` — documented side effect missing
 - `ipo_source_lines_wrong` — P3 analysis based on wrong lines
 - `test_fixture_mismatch` — fixture format changed
+- `consumer_error` — bug is in caller/test, not translated function; fix consumer only
+- `source_faithful_behavior` — behavior matches source; test assumption was wrong; annotate, don't fix
+- `implicit_capability_assumption` — source design relied on consumer having inference ability (e.g. strong LLM) that the target consumer lacks; fix in integration layer, not in translated function
 - `other` — describe if no category fits
 
 Each fix produces exactly ONE entry with ONE category. No category hopping.
+
+The last three categories (`consumer_error`, `source_faithful_behavior`, `implicit_capability_assumption`) resolve **without changing the translated function**. They require a retrospective entry but do not trigger scope scan for code fixes.
 
 #### 2. Scope Scan: Query BEFORE Execution
 
@@ -424,17 +431,25 @@ Resume P4 from next file
 ```
 Structural deviation or test failure found
   ↓
-Fix applied
+Bug Triage (T1 → T2 → T3)  ← MANDATORY before any fix
   ↓
-Trigger: Retrospective Protocol
-  ↓
-RCA → Checklist rule → Scope scan query → Scope scan → Consistent fix
-  ↓
-Full test suite re-run (not just failing test)
-  ↓
-If new failures: each triggers independent retrospective
-  ↓
-Resume P5 from next function
+  ├─ SOURCE_FAITHFUL          → annotate target code; fix test; no code change
+  ├─ CONSUMER_ERROR           → fix caller/test only; no code change
+  ├─ IMPLICIT_CAPABILITY      → fix integration layer only; no code change
+  ├─ ECOSYSTEM_DIFFERENCE     → verify compensation; may update test expectation
+  └─ CONFIRMED_TRANSLATION_ERROR
+       ↓
+     Fix applied
+       ↓
+     Trigger: Retrospective Protocol
+       ↓
+     RCA → Checklist rule → Scope scan query → Scope scan → Consistent fix
+       ↓
+     Full test suite re-run (not just failing test)
+       ↓
+     If new failures: each triggers independent retrospective
+       ↓
+     Resume P5 from next function
 ```
 
 For detailed protocol, see: `references/tdd-retrospective.md`
