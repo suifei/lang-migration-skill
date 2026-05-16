@@ -76,17 +76,19 @@ Root causes always belong to one of these categories:
 | `test_fixture_mismatch` | Test fixture format changed between source and target | binary fixture loaded differently |
 | `consumer_error` | Bug is in caller, test fixture, or test assertion — not in the translated function | test passes wrong arg type; fixture uses Python dict where Go expects slice |
 | `source_faithful_behavior` | Behavior matches source exactly; the assumption that it's a bug is wrong | Source returns nil on cache miss; test expected error — source is correct by design |
+| `implicit_capability_assumption` | Source design assumes consumer has implicit inference ability (e.g. strong LLM, runtime with smart defaults); target consumer lacks it and needs explicit guidance | Python conductor relies on Claude inferring "call GET /chat when unread>0"; Go target runs Qwen3.5 which needs an explicit code_run example to trigger the same action |
 | `other` | Root cause does not fit above — describe precisely |
 
-**⛔ Special resolution path for `source_faithful_behavior` and `consumer_error`:**
+**⛔ Special resolution path for `source_faithful_behavior`, `consumer_error`, and `implicit_capability_assumption`:**
 
-These two categories do NOT trigger the standard Fix → Scope Scan → Consistent Fix loop.
+These three categories do NOT trigger the standard Fix → Scope Scan → Consistent Fix loop.
 They are resolved differently:
 
 - `source_faithful_behavior`: add `SOURCE-FAITHFUL` comment in target; add `known_source_behaviors` entry to IPO registry; fix the test assertion; if source has a genuine bug, BLOCK for human decision. **No code change to the translated function.**
 - `consumer_error`: fix the caller, test fixture, or test assertion only. **No code change to the translated function.** Add a retrospective entry explaining what the consumer got wrong, so future test migrations avoid the same mistake.
+- `implicit_capability_assumption`: the translated function is correct; the gap is that the source design relied on a capable consumer (strong model, smart runtime) that the target's consumer does not have. Fix by making the implicit contract explicit in the integration layer (system prompt, config, documentation) — **not** by changing the translated function's logic. Document the assumption in the IPO registry under `inferred_invariants`: `"consumer (model/runtime) can infer X from context without explicit instruction [inferred from: source design + known model capability gap]"`.
 
-The retrospective entry is still required for these categories — it documents what happened, prevents the same misdiagnosis in future, and may reveal a pattern in how tests are being migrated.
+The retrospective entry is still required for all three categories — it documents what happened, prevents the same misdiagnosis in future, and may reveal a pattern in how the integration layer needs to be strengthened for the target environment.
 
 ### Q3: Generalization (泛化规律)
 *What is the general pattern this root cause represents?* — stated as a rule:

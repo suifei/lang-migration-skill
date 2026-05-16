@@ -244,6 +244,40 @@ outputs (e.g., joined strings, ranked lists). If yes, ordered map is required.
 
 **Root cause category**: `ecosystem_gap_unapplied`
 
+---
+
+### Trap 5: Implicit Model Capability Assumption in Agent/LLM Integrations
+
+**Python pattern:**
+```python
+# conductor.py:277-279 — design assumes consumer (Claude) will infer to call GET /chat
+unread = sum(1 for m in chat_messages if m.get("role") == "user" and not m.get("read"))
+summary = f"... | {unread}条用户未读消息, ..."
+# No explicit instruction to fetch messages — Claude infers it from context
+```
+
+**Failure mode**: The Go translation faithfully replicates `conductorPrompt` (count-only). This is
+**correct** — the function is not the bug. The bug is that the Go deployment runs a smaller model
+(e.g., Qwen3.5) that does not implicitly infer "when unread > 0, call GET /chat first."
+The first Copilot "fix" (embedding message body directly) was wrong — it changed the source design.
+
+**The correct investigation path**:
+1. **T1**: Does Go `conductorPrompt` match Python `conductor.py:277-279`? → YES → source-faithful
+2. **T2**: Read `conductor.py:277-279` — source only passes count → source_matches_target: true
+3. **T3**: Check consumer path — does the system prompt have a `code_run` example for `GET /chat`? Does it have an explicit trigger rule? → NO → `IMPLICIT_CAPABILITY_ASSUMPTION`
+4. **Fix**: Add `GET /chat?last=20` code_run example + explicit "when unread > 0, call GET /chat first" rule to the system prompt. **Do not change `conductorPrompt` logic.**
+
+**Detection**: Look for IPO entries where `inferred_invariants` should include capability assumptions:
+```yaml
+inferred_invariants:
+  - "consumer LLM can infer from unread count that it must call GET /chat to read content
+     [inferred from: no explicit fetch instruction in Python prompt; source used Claude]"
+```
+When porting to a smaller model, every inferred invariant of this type requires an explicit
+instruction or code_run example in the target system prompt.
+
+**Root cause category**: `implicit_capability_assumption`
+
 ## Ecosystem Gaps
 
 | Python | Gap | Compensation |

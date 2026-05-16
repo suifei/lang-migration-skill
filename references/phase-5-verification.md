@@ -256,6 +256,7 @@ T3 TRIAGE:
 ```
 
 - `CONSUMER_ERROR` — the bug is in the caller, test fixture, or test assertion — fix the consumer, not the function
+- `IMPLICIT_CAPABILITY_ASSUMPTION` — the source design relied on a capable consumer (strong model, smart runtime) that the target consumer lacks; the translated function is correct, but the integration layer needs to make the implicit contract explicit (e.g., add a code_run example to a system prompt, add an explicit trigger rule). Fix in the integration layer, **not** in the translated function. Document the assumed capability in the IPO registry `inferred_invariants`.
 - `ECOSYSTEM_DIFFERENCE` — the difference is a known and documented gap — verify compensation strategy is applied correctly; if yes, update test expectation to match target semantics
 - `CONFIRMED_TRANSLATION_ERROR` — none of the above apply; the function itself is wrong → go to Step 1 (Fix + retrospective)
 
