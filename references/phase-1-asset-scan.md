@@ -76,7 +76,9 @@ Is this a Dockerfile or docker-compose?
   YES → adapt (update base image and build commands)
 
 Is this documentation or algorithm notes (README, docs/, *.md, *.rst, *.tex)?
-  YES → preserve_and_reference; set p3_required: true if it contains algorithm detail
+  Does it contain algorithm detail, mathematical derivations, or design notes needed during P3?
+    YES → reference_only; set p3_required: true
+    NO  → preserve
   
 Is this a binary asset (image, .npy, .pb, .pkl, compiled output)?
   YES → direct_use if it's input data; generated if it's build output
@@ -112,8 +114,10 @@ Mark `p3_required: true` for:
 
 ### Step 5: Update State
 
+Two summary blocks must BOTH be updated and must be consistent with each other:
+
 ```yaml
-# In migration-state.yaml
+# In migration-state.yaml — overall counts
 stats:
   assets_total: <count>
   assets_done: <count>   # all DONE (not counting BLOCKED)
@@ -122,6 +126,20 @@ phases:
   P1_asset_scan: DONE
   P2_ecosystem_map: IN_PROGRESS
 ```
+
+```yaml
+# In asset-inventory.yaml — counts per strategy (verified by PGR-1-E)
+by_strategy:
+  translate: <count>
+  adapt: <count>
+  direct_use: <count>
+  preserve: <count>
+  reference_only: <count>
+  generated: <count>
+```
+
+`stats.assets_total` must equal the sum of all `by_strategy` values.
+`stats.assets_done` must equal the count of entries with `status: DONE` across all strategies.
 
 ---
 

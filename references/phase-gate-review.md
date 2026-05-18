@@ -287,10 +287,12 @@ A complete `ecosystem-map.yaml` with every import/symbol confirmed or gap-accept
 - FAIL if any entry has `status: NEEDS_REVIEW`
 - FINDING format: `PGR-2-B: ecosystem-map.yaml entry id=<id> still has status: NEEDS_REVIEW`
 
-**Check PGR-2-C: CONFIRMED entries have non-empty evidence**
+**Check PGR-2-C: CONFIRMED entries have complete evidence**
 - For every `status: CONFIRMED` entry:
   - Verify `confirmation_evidence.source_behavior` is non-empty
   - Verify `confirmation_evidence.target_behavior` is non-empty
+  - Verify `confirmation_evidence.equivalence_rationale` is non-empty
+  - Verify `confirmation_evidence.verified_from` is non-empty
 - FINDING format: `PGR-2-C: ecosystem-map.yaml entry id=<id> — confirmation_evidence.<field> is empty`
 
 **Check PGR-2-D: equivalence_type set on every entry**
@@ -339,10 +341,11 @@ A complete `ipo-registry.yaml` with every function documented and every field po
   - Verify `source_line` is not 0 and not empty
 - FINDING format: `PGR-3-C: ipo-registry.yaml entry id=<id> magic_number value=<val> — source_line is 0 or empty`
 
-**Check PGR-3-D: Every inferred_invariant has evidence bracket**
+**Check PGR-3-D: Every inferred_invariant has complete evidence bracket**
 - For every `inferred_invariants` string across all entries:
-  - Verify it contains `[inferred from:` substring
-- FINDING format: `PGR-3-D: ipo-registry.yaml entry id=<id> invariant "<text>" — missing [inferred from: ...] bracket`
+  - Verify it contains `[inferred from:` substring AND a closing `]`
+  - Verify the text between `[inferred from:` and `]` is non-empty (not just whitespace)
+- FINDING format: `PGR-3-D: ipo-registry.yaml entry id=<id> invariant "<text>" — missing or incomplete [inferred from: <evidence>] bracket`
 
 **Check PGR-3-E: No entry has translation_status: DONE**
 - P3 populates the registry but does NOT translate; no entry should have `translation_status: DONE`
@@ -350,16 +353,24 @@ A complete `ipo-registry.yaml` with every function documented and every field po
 
 **Check PGR-3-F: Spot-check 5 random entries**
 - Select 5 random entries from ipo-registry.yaml
-- For each, re-read the actual source file for that function
-- Verify that `first_statement` and `last_statement` (from READ_EVIDENCE) match actual file content
-- PASS: both match for all 5 entries
-- FINDING format: `PGR-3-F: entry id=<id> — first_statement "<recorded>" does not match actual line <N>: "<actual>"`
+- For each, re-read the actual source file at the function's `source_lines` range
+- Verify that the `process.steps[0].source_lines` range in the source file actually contains
+  the logic described in `steps[0].desc` (i.e., the first step description matches reality)
+- Verify that the last step's `source_lines` range covers the actual end of the function
+- PASS: step descriptions and source_lines are accurate for all 5 entries
+- FINDING format: `PGR-3-F: entry id=<id> — step <N> desc "<recorded>" does not match actual source at <file>:<lines>`
+
+Note: READ_EVIDENCE blocks are ephemeral AI response artifacts (not stored in YAML). This check
+re-reads the source directly and compares against the IPO entry's step descriptions and source_lines.
 
 **Check PGR-3-G: Branch coverage — steps_count ≥ branch_count**
-- For every entry in ipo-registry.yaml that has a `READ_EVIDENCE.branch_count` recorded:
+- For every entry in ipo-registry.yaml:
+  - Re-read the source file at the function's line range (`source_lines` from any step)
+  - Count the number of `if/elif/else/for/while/try/except` branches in the function body
   - Count the number of entries in `process.steps`
-  - Verify `steps_count >= branch_count`
+  - Verify `steps_count >= branch_count_in_source`
 - A collapsed entry is one where multiple conditional branches were merged into a single step
+- Note: READ_EVIDENCE `branch_count` is ephemeral (not stored in YAML); re-count from source
 - FINDING format: `PGR-3-G: entry id=<id> — steps_count=<s> < branch_count=<b>; branches collapsed`
 
 **Check PGR-3-H: Post-construction call-site scan**
@@ -369,6 +380,17 @@ A complete `ipo-registry.yaml` with every function documented and every field po
   - Verify each caller's `side_effects` includes any `obj.attr = X` assignments made immediately after the call
 - FINDING format: `PGR-3-H: caller <file>::<fn> calls <callee> but has no IPO entry / missing post-construction side_effects`
 
+**Check PGR-3-I: BEHAVIOR_PROOF quality spot-check**
+- Select the same 5 entries used in PGR-3-F (or 5 new random entries)
+- For each entry, using the stored `process.steps`, `inputs`, `outputs`, and `magic_numbers` in the IPO entry,
+  re-read the source file and verify the entry supports generating a BEHAVIOR_PROOF with SPECIFIC CONCRETE values:
+  - Can you state a specific `happy_path` with actual input values → actual output values?
+  - Can you state at least one `edge_case` with a boundary input → specific behavior?
+  - If the steps are too vague (generic: "processes data", "handles input") to produce concrete values → FINDING
+- This check re-derives BEHAVIOR_PROOF from stored YAML + source re-read (since original BEHAVIOR_PROOF is ephemeral)
+- PASS: all 5 entries support concrete happy_path + edge_case derivation
+- FINDING format: `PGR-3-I: entry id=<id> — IPO steps too vague to derive concrete BEHAVIOR_PROOF; re-analyze function`
+
 ### What "fixed" means for PGR-3
 
 - Missing function: run Phase 3 analysis protocol for that function (READ_EVIDENCE + BEHAVIOR_PROOF + fill entry)
@@ -376,9 +398,10 @@ A complete `ipo-registry.yaml` with every function documented and every field po
 - Missing source_line on magic number: re-read source; find the literal; record exact line
 - Missing invariant bracket: re-read source and callers; write specific evidence for the invariant
 - Entry marked DONE: set back to `TODO`; translation happens in P4
-- Mismatched spot-check: re-analyze the specific function from scratch
+- Mismatched spot-check (PGR-3-F): re-read source file; correct step descriptions and source_lines to match actual code
 - Collapsed branches (PGR-3-G): re-read source function; expand steps to one-step-per-branch; record each branch's source_lines
 - Missing post-construction side_effects (PGR-3-H): read call sites; add `side_effects` entries to caller IPO; add `translation_notes` to callee IPO
+- Vague IPO steps (PGR-3-I): re-read source function from scratch; replace generic step descriptions with specific, concrete descriptions that include real literals, thresholds, and boundary behaviors
 
 ---
 
