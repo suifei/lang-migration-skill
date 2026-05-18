@@ -328,8 +328,12 @@ not just the originally failing test. A scope-scan fix may introduce a new failu
 in a related component.
 
 ```bash
-go test ./...     # full suite
-go vet ./...      # structural check
+# Use the target language's full test command, e.g.:
+go test ./...        # Go
+cargo test           # Rust
+pytest               # Python
+bun test             # Bun/TypeScript
+zig build test       # Zig
 ```
 
 If new failures appear: each triggers its own independent retrospective.

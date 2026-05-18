@@ -361,10 +361,13 @@ Note: READ_EVIDENCE blocks are ephemeral AI response artifacts (not stored in YA
 re-reads the source directly and compares against the IPO entry's step descriptions and source_lines.
 
 **Check PGR-3-G: Branch coverage — steps_count ≥ branch_count**
-- For every entry in ipo-registry.yaml that has a `READ_EVIDENCE.branch_count` recorded:
+- For every entry in ipo-registry.yaml:
+  - Re-read the source file at the function's line range (`source_lines` from any step)
+  - Count the number of `if/elif/else/for/while/try/except` branches in the function body
   - Count the number of entries in `process.steps`
-  - Verify `steps_count >= branch_count`
+  - Verify `steps_count >= branch_count_in_source`
 - A collapsed entry is one where multiple conditional branches were merged into a single step
+- Note: READ_EVIDENCE `branch_count` is ephemeral (not stored in YAML); re-count from source
 - FINDING format: `PGR-3-G: entry id=<id> — steps_count=<s> < branch_count=<b>; branches collapsed`
 
 **Check PGR-3-H: Post-construction call-site scan**

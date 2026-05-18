@@ -390,9 +390,9 @@ The PGR-3 loop will:
 3. Verify every magic number has a non-zero `source_line`
 4. Verify every `inferred_invariant` contains the `[inferred from: ...]` evidence bracket
 5. Verify no entry has `translation_status: DONE` (translation happens in P4, not P3)
-6. Verify branch coverage: for every entry, `steps_count >= READ_EVIDENCE.branch_count`; flag any entry where branches are collapsed
+6. Verify branch coverage: for every entry, re-read source function and count `if/elif/else/for/while/try/except` branches; verify `steps_count >= branch_count`; flag any entry where branches are collapsed
 7. Verify post-construction scan: for every entry whose `outputs` describe a returned object, confirm caller IPO entries exist and include `side_effects` for post-construction assignments
-8. Spot-check 5 random entries by re-reading source files and verifying `first_statement`/`last_statement`
+8. Spot-check 5 random entries by re-reading source files and verifying step descriptions and `source_lines` against actual code
 9. Fix any findings autonomously and re-audit from scratch until zero findings remain
 
 `phases.P3_ipo_analysis: DONE` is set by PGR-3 as its final action — never set it directly.
