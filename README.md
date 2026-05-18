@@ -264,49 +264,40 @@ The report does not compute a single completion percentage. It runs five indepen
 
 ### The "TRUE 1:1 COMPLETION" Metric
 
+The gap report does not produce a single optimistic percentage. It surfaces a breakdown that makes incompleteness **specific and actionable**. The following is actual output from the [GenericAgent → go-GenericAgent migration](https://github.com/suifei/lang-migration-samples/blob/main/migration_workspace/gap-report.yaml):
+
 ```
 ═══════════════════════════════════════════════════════════════
 MIGRATION COMPLETENESS AUDIT — genericagent → go-GenericAgent
-Generated: 2026-05-15  |  python → go  |  150 source files
+python → go  |  150 source files
 ═══════════════════════════════════════════════════════════════
 
-FILE COVERAGE
-  translate files:   49/52  (94.2%) — 3 missing
-  adapt files:       15/15  (100%)
-  direct_use files:  54/57  (94.7%) — 3 missing
+FILE COVERAGE (52 translate-strategy files)
+  confirmed at expected path:  24  (46.2%)
+  ⚠ path drift (present, wrong location): 14  ← need path correction
+  ✗ truly missing:             14  ← untranslated
 
 FUNCTION COVERAGE
-  genuinely DONE:    138/142 (97.2%)
-  ⚠️  DONE no evidence:  4       ← re-verify these
-  BLOCKED:           0
-
-DIRECTORY COVERAGE
-  source dirs mapped: 11/14 (78.6%)
-  unmapped source:    3 dirs
+  translation_status DONE:     142 / 142  (100%)
+  verification checks passed:  898 / 898  (0 failures)
+  test packages passing:        37 /  37
 
 NON-CODE ASSETS
-  fixtures in target: 54/57
-  p3 docs referenced: 8/11
+  binary assets absent:        33  (demo images, GIFs, PDFs)
+                                   ← no compilation impact; needed for desktop UI
 
 SKIP CLASSIFICATION
-  intentional skips:  9 (documented)
-  platform-specific:  7 (Streamlit, PyQt5, tkinter...)
-  ⚠️ accidental gaps:  2       ← needs attention
-
+  Class A — intentional documented:  8  (PySide6, Streamlit, no Go equivalent)
+  Class C — accidental omissions:   16  (CLI entry points, shell scripts)
+  ⚠ Class C items need resolution before production readiness
 ───────────────────────────────────────────────────────────────
-TRUE 1:1 COMPLETION: 94.8%
+OVERALL: Core logic fully translated; 14 path corrections + 16 omissions pending
 ───────────────────────────────────────────────────────────────
-
-PRIORITY ACTION ITEMS:
-  🔴 CRITICAL: 4 functions marked DONE with no target_lines — re-verify
-  🔴 CRITICAL: 2 source files missing with no documented reason
-  🟡 IMPORTANT: genericagent/memory/L4_raw_sessions/ has no target equivalent
-  🟢 MINOR: 3 p3-required docs were never cited in IPO registry
 ```
 
-The TRUE 1:1 COMPLETION metric is deliberately conservative. It counts a file as complete only if the target file exists on disk. It counts a function as complete only if `translation_status: DONE` AND `target_lines` is non-empty. Self-reported status in YAML is never taken at face value — the filesystem is the ground truth.
+The gap report intentionally refuses to compute a single completion percentage, because a headline number hides the structure of what's missing. 14 path drifts (files exist but at wrong paths) require different action than 14 truly missing files — and both require different action than 33 binary assets that don't affect compilation.
 
-This conservatism is the point. An optimistic completion metric that trusts the AI's self-assessment is not a completion metric; it is a record of what the AI claimed. Only a metric grounded in physical artifacts — files that exist, line ranges that are populated — can answer the question the human actually cares about.
+This conservatism is the point. A metric that trusts the AI's self-assessment is not a completion metric; it is a record of what the AI claimed. Only a metric grounded in physical artifacts — files that exist on disk, line ranges that are populated — can answer the question the human actually cares about.
 
 ---
 
