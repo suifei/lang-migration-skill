@@ -5,7 +5,7 @@ gap_report.py — Migration Completeness Audit for lang-migration skill.
 Usage:
     python gap_report.py --workspace migration_workspace/ \
                          --source genericagent/ \
-                         --target malaclaw/
+                         --target go-GenericAgent/
 
 Reads: migration-state.yaml, asset-inventory.yaml, ipo-registry.yaml
 Walks: source and target directory trees

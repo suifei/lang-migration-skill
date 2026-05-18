@@ -36,7 +36,7 @@ Skillhub:[https://skillhub.cn/skills/lang-migration](https://skillhub.cn/skills/
 
 **v1.3 — Bug溯源分类协议 + 真实项目验证**
 P5中所有测试失败，在执行任何修复之前，必须通过强制性的3步溯源分类。五种分类结果中，只有1种会修改翻译函数。
-新增4个根因类别。已在真实Python→Go迁移项目（GenericAgent → malaclaw）中完成验证。[了解更多 →](#bug溯源分类协议先分类再修复)
+新增4个根因类别。已在真实Python→Go迁移项目（GenericAgent → go-GenericAgent）中完成验证。[了解更多 →](#bug溯源分类协议先分类再修复)
 
 **v1.2 — 阶段门禁复盘（PGR）**
 每个阶段流转前，必须通过**自主自审循环**才能推进。AI枚举所有预期产出，逐项审计，修复发现的问题，再次审计——直至**零发现**。
@@ -261,7 +261,7 @@ current_task:
 
 ```
 ═══════════════════════════════════════════════════════════════
-迁移完整性审计 — genericagent → malaclaw
+迁移完整性审计 — genericagent → go-GenericAgent
 生成时间: 2026-05-15  |  python → go  |  150个源文件
 ═══════════════════════════════════════════════════════════════
 
@@ -349,7 +349,7 @@ T3：排查消费端/调用方路径
 
 ### 真实项目验证：conductor案例
 
-在 **GenericAgent → malaclaw** 的Python→Go迁移中，conductor agent无法读取用户消息。第一个"修复"直接把消息内容嵌入system prompt——改变了源码设计。
+在 **GenericAgent → go-GenericAgent** 的Python→Go迁移中，conductor agent无法读取用户消息。第一个"修复"直接把消息内容嵌入system prompt——改变了源码设计。
 
 正确的溯源分析：
 

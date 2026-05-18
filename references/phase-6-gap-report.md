@@ -107,12 +107,12 @@ DIMENSION 3 — Directory Coverage:
   source_dirs_without_target:<N>
   
   UNMAPPED SOURCE DIRECTORIES:
-    - genericagent/plugins/         → no equivalent in malaclaw/
+    - genericagent/plugins/         → no equivalent in go-GenericAgent/
     - genericagent/memory/L4_raw_sessions/ → no equivalent (reference_only — OK?)
     ...
 
   UNEXPECTED TARGET DIRECTORIES (not derived from source):
-    - malaclaw/internal/bbs/bbs_files/ → runtime-generated temp dir? OK to ignore?
+    - go-GenericAgent/internal/bbs/bbs_files/ → runtime-generated temp dir? OK to ignore?
     ...
 ```
 

@@ -36,7 +36,7 @@ persistent state, and verifiable proof that the AI actually did the work.*
 **v1.3 — Bug Triage Protocol + Real-World Validation**
 Every P5 test failure now goes through a mandatory 3-step triage before any fix is attempted.
 Only 1 of 5 verdicts leads to modifying the translated function. Four new root cause categories.
-Validated against a real Python→Go migration (GenericAgent → malaclaw). [Learn more →](#bug-triage-protocol-classify-before-fix)
+Validated against a real Python→Go migration (GenericAgent → go-GenericAgent). [Learn more →](#bug-triage-protocol-classify-before-fix)
 
 **v1.2 — Phase Gate Review (PGR)**
 Every phase transition now requires passing an **autonomous self-auditing loop** before advancing.
@@ -266,7 +266,7 @@ The report does not compute a single completion percentage. It runs five indepen
 
 ```
 ═══════════════════════════════════════════════════════════════
-MIGRATION COMPLETENESS AUDIT — genericagent → malaclaw
+MIGRATION COMPLETENESS AUDIT — genericagent → go-GenericAgent
 Generated: 2026-05-15  |  python → go  |  150 source files
 ═══════════════════════════════════════════════════════════════
 
@@ -354,7 +354,7 @@ Only one of five verdicts results in modifying the translated function. The othe
 
 ### Real-World Validation: The Conductor Case
 
-In a Python→Go migration of **GenericAgent → malaclaw**, the conductor agent failed to read incoming user messages. The first "fix" embedded message content directly into the system prompt — changing the source design.
+In a Python→Go migration of **GenericAgent → go-GenericAgent**, the conductor agent failed to read incoming user messages. The first "fix" embedded message content directly into the system prompt — changing the source design.
 
 The correct triage:
 
