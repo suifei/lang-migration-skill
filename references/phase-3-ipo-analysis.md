@@ -85,7 +85,8 @@ Block and re-read before continuing.
 ## Entry Criteria
 
 - `phases.P2_ecosystem_map: DONE`
-- `ecosystem-map.yaml` has no entries with `status: BLOCKED`
+- `ecosystem-map.yaml` has no entries with `status: NEEDS_REVIEW` (every entry is `CONFIRMED` or `GAP_ACCEPTED`)
+- `migration-state.yaml` has no `current_task.status: BLOCKED` (all human decisions from P2 resolved)
 
 ## Exit Criteria
 
@@ -98,9 +99,10 @@ Block and re-read before continuing.
 
 ---
 
-## Execution Protocol: One Function at a Time
+## Execution Protocol: Sequential Per-Function Analysis
 
 **Maximum: 500 functions per AI response.** No exceptions.
+Each function is processed individually in sequence — READ_EVIDENCE → fill entry → BEHAVIOR_PROOF — before moving to the next. The batch size controls how many complete cycles fit in one response, not how many are processed in parallel.
 
 For each function, execute this exact sequence — no steps skipped, no order changed:
 
