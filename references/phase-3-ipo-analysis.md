@@ -100,7 +100,7 @@ Block and re-read before continuing.
 
 ## Execution Protocol: One Function at a Time
 
-**Maximum: 5 functions per AI response.** No exceptions.
+**Maximum: 500 functions per AI response.** No exceptions.
 
 For each function, execute this exact sequence — no steps skipped, no order changed:
 
