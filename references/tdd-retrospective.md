@@ -61,7 +61,8 @@ discrepancy. Be concrete: file name, line number, error message.
 *Why did this happen at the structural level?* — not "I forgot to handle X" but
 "the translation pattern for Y does not preserve Z property."
 
-Root causes always belong to one of these categories:
+Root causes always belong to one of these **12 predefined categories** (plus an open `other` catch-all, making 13 total):
+When reporting, use the exact category name from this table.
 
 | Category | Description | Example |
 |---|---|---|

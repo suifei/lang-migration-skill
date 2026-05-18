@@ -11,18 +11,21 @@ The source code may be consulted for clarification, but the IPO entry is the con
 
 ## ⛔ Entry Guard: P3 Quality Check
 
-Before starting P4, verify that P3 was genuinely completed:
+Before starting P4, verify that PGR-3 passed AND P3 was genuinely completed:
 
 ```
 P4 ENTRY CHECK:
-  Sample 10 random ipo-registry.yaml entries.
+  Step 1: Verify migration-state.yaml shows phase_gates.PGR_3.status: PASSED
+          If not PASSED: do not proceed — complete PGR-3 first.
+
+  Step 2: Sample 10 random ipo-registry.yaml entries.
   For each, confirm:
     - At least one step has non-empty source_lines? YES/NO
     - At least one magic_number has non-zero source_line? YES/NO (or no magic numbers)
-    - inferred_invariants have [inferred from: ...] brackets? YES/NO (or none)
+    - inferred_invariants have [inferred from: <evidence>] brackets? YES/NO (or none)
 
-  If ANY sampled entry fails: P3 is incomplete.
-  Action: Return to P3 and re-analyze failing entries before proceeding.
+  If ANY sampled entry fails: P3 is incomplete despite PASSED status.
+  Action: Re-run PGR-3 — it will find and fix the failing entries.
 ```
 
 **Do not start P4 if the entry check reveals empty source_lines fields.**

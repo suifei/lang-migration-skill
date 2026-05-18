@@ -114,8 +114,10 @@ Mark `p3_required: true` for:
 
 ### Step 5: Update State
 
+Two summary blocks must BOTH be updated and must be consistent with each other:
+
 ```yaml
-# In migration-state.yaml
+# In migration-state.yaml — overall counts
 stats:
   assets_total: <count>
   assets_done: <count>   # all DONE (not counting BLOCKED)
@@ -124,6 +126,20 @@ phases:
   P1_asset_scan: DONE
   P2_ecosystem_map: IN_PROGRESS
 ```
+
+```yaml
+# In asset-inventory.yaml — counts per strategy (verified by PGR-1-E)
+by_strategy:
+  translate: <count>
+  adapt: <count>
+  direct_use: <count>
+  preserve: <count>
+  reference_only: <count>
+  generated: <count>
+```
+
+`stats.assets_total` must equal the sum of all `by_strategy` values.
+`stats.assets_done` must equal the count of entries with `status: DONE` across all strategies.
 
 ---
 

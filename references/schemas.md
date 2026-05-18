@@ -119,6 +119,19 @@ phase_gates:
 
 ## ipo-registry.yaml
 
+### `translation_status` values
+
+| Value | Meaning |
+|-------|---------|
+| `TODO` | Not yet translated; IPO analysis complete |
+| `IN_PROGRESS` | Translation started but not complete |
+| `DONE` | Translation complete AND verification passed; `target_lines` must be non-empty |
+| `BLOCKED` | Translation blocked by missing real dependency; `block_reason` must be set |
+| `SKIP` | Intentionally excluded from translation (e.g., utility function handled by a library call, or test helper with no target equivalent); requires a `skip_reason` field explaining why |
+
+Note: `translation_status: DONE` must NOT be set during P3. It is set only after P5 verification passes.
+`SKIP` is valid only when PGR-3-A would otherwise flag the function as missing.
+
 ### `magic_numbers.origin` values
 
 | Value | Meaning |
@@ -170,3 +183,29 @@ known_source_behaviors:
 **`intentional: false` triggers a BLOCK**: if the source has a genuine bug and the target
 faithfully reproduces it, a human must decide whether to fix source + re-run P3, or accept
 the known deviation. The block must not be silently resolved by the AI.
+
+---
+
+## retrospective-checklist.yaml
+
+### Entry schema
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `id` | string | Auto-incremented identifier (e.g., `RCA-001`); never reused |
+| `discovered_phase` | enum | `P4 \| P5` — phase where the bug was found |
+| `discovered_at` | string | ISO 8601 date |
+| `phenomenon` | string | Concrete description of the failure (file, line, error message) |
+| `root_cause_category` | enum | One of the 12 predefined categories (see `references/tdd-retrospective.md`) |
+| `root_cause` | string | Structural explanation of why the bug happened |
+| `fix_applied` | string | What was changed, with file paths and line numbers |
+| `checklist_rule` | string | Generalized rule: "Whenever X, check for Y" |
+| `generalization` | string | One-line search pattern description |
+| `scope_scan_query` | string | The grep/search command used to find all instances |
+| `scope_scan_results` | list | Each result: `{path, verdict: FIXED\|OK\|DEFERRED, notes}` |
+| `instances_found` | integer | Total instances found by scope scan |
+| `instances_fixed` | integer | Instances that required and received a fix |
+| `instances_ok` | integer | Instances where the root cause pattern was present but did not apply |
+| `status` | enum | `RESOLVED \| DEFERRED` — DEFERRED requires non-empty `deferred_reason` |
+| `ecosystem_map_update_required` | boolean | Whether this RCA implies the ecosystem-map.yaml guidance should be strengthened |
+| `ecosystem_map_note` | string | Specific suggestion for ecosystem map improvement (required when `true`) |

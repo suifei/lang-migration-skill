@@ -302,8 +302,22 @@ Never analyze a function in isolation.
 
 ## Execution Order
 
-Topological sort by `calls` graph — leaf functions first, callers after callees.
+**Pre-Step: Build preliminary calls graph before per-function analysis begins.**
+
+Before starting any per-function READ_EVIDENCE analysis:
+1. Scan all `translate`-strategy source files (grep for function/method definitions + call sites)
+2. Build a preliminary `calls` adjacency map: `caller → [callee1, callee2, ...]`
+3. This map does NOT require reading function bodies yet — just extract call names
+
+This pre-step resolves the chicken-and-egg problem: you need the calls graph to determine
+topological order, but you don't have IPO entries yet. Shallow scanning (function names and
+call-site grep) is sufficient for ordering.
+
+**Then process in topological order** — leaf functions first, callers after callees.
 This ensures that when documenting a caller, all callees are already understood.
+
+If a callee is discovered during analysis that was not in the preliminary graph,
+flag it as a missing entry and add it to the processing queue before the caller.
 
 ---
 
@@ -393,6 +407,7 @@ The PGR-3 loop will:
 6. Verify branch coverage: for every entry, re-read source function and count `if/elif/else/for/while/try/except` branches; verify `steps_count >= branch_count`; flag any entry where branches are collapsed
 7. Verify post-construction scan: for every entry whose `outputs` describe a returned object, confirm caller IPO entries exist and include `side_effects` for post-construction assignments
 8. Spot-check 5 random entries by re-reading source files and verifying step descriptions and `source_lines` against actual code
-9. Fix any findings autonomously and re-audit from scratch until zero findings remain
+9. For the same 5 entries, verify IPO data supports deriving a concrete BEHAVIOR_PROOF (specific input→output values); flag entries whose steps are too vague
+10. Fix any findings autonomously and re-audit from scratch until zero findings remain
 
 `phases.P3_ipo_analysis: DONE` is set by PGR-3 as its final action — never set it directly.
