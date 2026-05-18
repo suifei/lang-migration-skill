@@ -350,10 +350,15 @@ A complete `ipo-registry.yaml` with every function documented and every field po
 
 **Check PGR-3-F: Spot-check 5 random entries**
 - Select 5 random entries from ipo-registry.yaml
-- For each, re-read the actual source file for that function
-- Verify that `first_statement` and `last_statement` (from READ_EVIDENCE) match actual file content
-- PASS: both match for all 5 entries
-- FINDING format: `PGR-3-F: entry id=<id> — first_statement "<recorded>" does not match actual line <N>: "<actual>"`
+- For each, re-read the actual source file at the function's `source_lines` range
+- Verify that the `process.steps[0].source_lines` range in the source file actually contains
+  the logic described in `steps[0].desc` (i.e., the first step description matches reality)
+- Verify that the last step's `source_lines` range covers the actual end of the function
+- PASS: step descriptions and source_lines are accurate for all 5 entries
+- FINDING format: `PGR-3-F: entry id=<id> — step <N> desc "<recorded>" does not match actual source at <file>:<lines>`
+
+Note: READ_EVIDENCE blocks are ephemeral AI response artifacts (not stored in YAML). This check
+re-reads the source directly and compares against the IPO entry's step descriptions and source_lines.
 
 **Check PGR-3-G: Branch coverage — steps_count ≥ branch_count**
 - For every entry in ipo-registry.yaml that has a `READ_EVIDENCE.branch_count` recorded:
@@ -376,7 +381,7 @@ A complete `ipo-registry.yaml` with every function documented and every field po
 - Missing source_line on magic number: re-read source; find the literal; record exact line
 - Missing invariant bracket: re-read source and callers; write specific evidence for the invariant
 - Entry marked DONE: set back to `TODO`; translation happens in P4
-- Mismatched spot-check: re-analyze the specific function from scratch
+- Mismatched spot-check (PGR-3-F): re-read source file; correct step descriptions and source_lines to match actual code
 - Collapsed branches (PGR-3-G): re-read source function; expand steps to one-step-per-branch; record each branch's source_lines
 - Missing post-construction side_effects (PGR-3-H): read call sites; add `side_effects` entries to caller IPO; add `translation_notes` to callee IPO
 

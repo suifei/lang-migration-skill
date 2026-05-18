@@ -76,7 +76,9 @@ Is this a Dockerfile or docker-compose?
   YES → adapt (update base image and build commands)
 
 Is this documentation or algorithm notes (README, docs/, *.md, *.rst, *.tex)?
-  YES → preserve_and_reference; set p3_required: true if it contains algorithm detail
+  Does it contain algorithm detail, mathematical derivations, or design notes needed during P3?
+    YES → reference_only; set p3_required: true
+    NO  → preserve
   
 Is this a binary asset (image, .npy, .pb, .pkl, compiled output)?
   YES → direct_use if it's input data; generated if it's build output

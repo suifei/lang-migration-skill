@@ -263,13 +263,19 @@ RETROSPECTIVE CHECKLIST SUMMARY (end of P5):
   total_instances_fixed:   <N>
   
   By root_cause_category:
-    ecosystem_gap_unapplied:    <N>   ← most common? consider strengthening P2
-    semantic_contract_lost:     <N>   ← consider strengthening P3 IPO inputs
-    invariant_not_transferred:  <N>
-    magic_number_decontextualized: <N>
-    control_flow_collapsed:     <N>
-    error_class_narrowed:       <N>
-    other:                      <N>
+    ecosystem_gap_unapplied:          <N>   ← most common? consider strengthening P2
+    semantic_contract_lost:           <N>   ← consider strengthening P3 IPO inputs
+    invariant_not_transferred:        <N>
+    magic_number_decontextualized:    <N>
+    control_flow_collapsed:           <N>
+    error_class_narrowed:             <N>
+    side_effect_dropped:              <N>
+    ipo_source_lines_wrong:           <N>
+    test_fixture_mismatch:            <N>
+    consumer_error:                   <N>   ← fixed consumer/test only; no code change to translated fn
+    source_faithful_behavior:         <N>   ← annotated SOURCE-FAITHFUL; test assertion fixed
+    implicit_capability_assumption:   <N>   ← fixed integration layer only; no code change to translated fn
+    other:                            <N>
   
   PATTERN INSIGHT:
     Most common category: <category>

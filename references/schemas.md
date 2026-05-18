@@ -140,12 +140,13 @@ side_effects:
 
 ### `inferred_invariants` format
 
-Assumptions the code makes but does not assert:
+Assumptions the code makes but does not assert.
+**Every entry MUST end with `[inferred from: ...]` — this bracket is mandatory** (see `references/phase-3-ipo-analysis.md`):
 ```yaml
 inferred_invariants:
-  - "caller guarantees sum(data) ≈ 1.0 (not checked)"
-  - "input list is non-empty (would divide by zero otherwise)"
-  - "file at path is UTF-8 encoded (no encoding specified)"
+  - "caller guarantees sum(data) ≈ 1.0 [inferred from: no normalization in body + test fixtures always sum to 1.0]"
+  - "input list is non-empty [inferred from: line 43 divides by len(data) with no guard]"
+  - "file at path is UTF-8 encoded [inferred from: no encoding parameter passed to open(); source comments say UTF-8 only]"
 ```
 
 ### `known_source_behaviors` format
