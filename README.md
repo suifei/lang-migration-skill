@@ -401,6 +401,110 @@ This is uncomfortable. It is also the only way to know whether the migration is 
 
 ---
 
+## Real-World Case Study: GenericAgent Python → Go
+
+> **Sample repository**: [suifei/lang-migration-samples](https://github.com/suifei/lang-migration-samples)
+> Full YAML state files, IPO registry, and the complete Go output are public.
+
+The methodology has been applied in full to a production AI agent framework:
+**[GenericAgent](https://github.com/suifei/lang-migration-samples/tree/main/genericagent)** (Python 3.11)
+→ **[go-GenericAgent](https://github.com/suifei/lang-migration-samples/tree/main/go-GenericAgent)** (Go 1.25)
+
+GenericAgent is a minimal self-evolving autonomous agent framework with 12 chat platform
+integrations (Telegram, Discord, Lark, WeChat Work, …) and 10 memory subsystems.
+
+### Migration Outcome
+
+| Metric | Value | Source |
+|--------|-------|--------|
+| Source files scanned | 150 | [asset-inventory.yaml](https://github.com/suifei/lang-migration-samples/blob/main/migration_workspace/asset-inventory.yaml) |
+| Strategy breakdown | 52 translate · 15 adapt · 57 direct-use · 26 reference-only | |
+| Ecosystem symbols mapped | 58 (38 structural · 10 behavioral · 7 partial · 3 none) | [ecosystem-map.yaml](https://github.com/suifei/lang-migration-samples/blob/main/migration_workspace/ecosystem-map.yaml) |
+| Functions in IPO registry | 142 / 142 documented and translated | [ipo-registry.yaml](https://github.com/suifei/lang-migration-samples/blob/main/migration_workspace/ipo-registry.yaml) |
+| Go test packages passing | 37 / 37 | [migration-state.yaml](https://github.com/suifei/lang-migration-samples/blob/main/migration_workspace/migration-state.yaml) |
+| Test coverage | 60.1% | |
+| Verification checks run | 898 | |
+| Verification failures | **0** | |
+| Build / vet | ✅ Clean | |
+| Phases complete | P0 → P5 all DONE | |
+| Active AI sessions | ~7 | |
+
+All phases were completed as verified by [migration-state.yaml](https://github.com/suifei/lang-migration-samples/blob/main/migration_workspace/migration-state.yaml):
+
+```yaml
+phases:
+  P0_bootstrap:    DONE
+  P1_asset_scan:   DONE
+  P2_ecosystem_map: DONE
+  P3_ipo_analysis: DONE
+  P4_translation:  DONE
+  P5_verification: DONE
+```
+
+### What the Ecosystem Map Captured
+
+A sample from [ecosystem-map.yaml](https://github.com/suifei/lang-migration-samples/blob/main/migration_workspace/ecosystem-map.yaml) — including the non-trivial gaps:
+
+| Python | Go | Equivalence | Decision |
+|---|---|---|---|
+| `asyncio` | goroutines + channels | structural | `async def` → goroutine; `await` → channel receive |
+| `collections.defaultdict` | `map[K]V` | behavioral | No auto-init; explicit `if _, ok := m[k]` required |
+| `importlib` (dynamic import) | compile-time registry | partial | No Go equivalent; plugin registration via `init()` |
+| `streamlit` | HTTP + SSE | none | Reactive UI has no Go equivalent; replaced with conductor web UI |
+| `ultralytics` (YOLO) | ONNX Runtime + CGO | none | Export model to ONNX; bind via `onnxruntime_go`; CGO dependency |
+
+### What the IPO Registry Documented
+
+Magic numbers from [ipo-registry.yaml](https://github.com/suifei/lang-migration-samples/blob/main/migration_workspace/ipo-registry.yaml) — each with source line, type, and inferred purpose:
+
+```yaml
+# agent_loop.py — turn management thresholds
+magic_numbers:
+  - value: 40   type: iteration_limit  purpose: "default max turns, interactive sessions"
+  - value: 70   type: iteration_limit  purpose: "max turns, task one-shot mode"
+  - value: 100  type: iteration_limit  purpose: "plan-mode hard cap"
+  - value: 0.6  type: threshold        purpose: "target context fill ratio after trimming"
+  - value: 10   type: iteration_limit  purpose: "reset tool schema every N turns"
+
+# Inferred invariants (undocumented contracts exposed by P3):
+inferred_invariants:
+  - "history managed inside LLM client backend — not in messages list [inferred from: no append in body]"
+  - "bad_json is a reserved built-in tool, never in JSON schema [inferred from: special-cased in dispatcher]"
+  - "unknown tool resets last_tools to force re-sending schema next turn [inferred from: line 312]"
+```
+
+### Bugs Discovered During Verification
+
+These were found by real tests on real data — impossible to detect through code review alone:
+
+1. **Goroutine deadlock** — `streamCh` was never closed after streaming LLM response completed.
+   `for-select` in the consumer goroutine blocked forever.
+   Fix: `defer close(streamCh)` added before `defer close(loopDone)` in `agent.Run()`.
+   Root cause: `side_effect_dropped` — Python's generator exhaustion is implicit; Go channels require explicit close.
+
+2. **`init()` panic** — Package-level `init()` called `regexp.MustCompile` with a pattern using
+   lookahead syntax (`(?=…)`), which Go's `regexp` package (RE2 semantics) does not support.
+   Root cause: `ecosystem_gap_unapplied` — the `re` → `regexp` ecosystem map entry notes RE2 limitations, but the specific lookahead was not caught in P3.
+
+### Gap Report Findings (Honest View)
+
+The [gap-report.yaml](https://github.com/suifei/lang-migration-samples/blob/main/migration_workspace/gap-report.yaml) P6 audit found:
+
+- **14 path drifts** — files present in Go output but at different paths than planned
+- **14 truly missing** — files not yet translated (mostly CLI entry points and shell scripts)
+- **33 binary assets absent** — demo images, GIFs, PDFs (no compilation impact; needed for desktop UI)
+- **8 intentional skips** — GUI frontends (`qtapp.py` PySide6, `stapp.py` Streamlit) with no Go equivalent
+
+The methodology's gap report makes this residual incompleteness **visible and enumerated** — not hidden under a claimed "100% done."
+
+### Honest Assessment
+
+The migration required approximately **7 active AI sessions** of sustained human attention: approving gap decisions, resolving path-drift discrepancies, and validating bug fixes. It is not fully autonomous — human judgment is required at ecosystem decision points and when the methodology issues a `BLOCKED` status.
+
+The methodology's value is not speed — it is **structural fidelity and verified completeness**. Every function translated has an IPO entry. Every magic number has a source line. Every ecosystem gap has a documented compensation. Every test failure went through triage before any fix.
+
+---
+
 ## Runtime Environments
 
 The methodology is agent-agnostic. It has been designed to run in:

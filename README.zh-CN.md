@@ -396,6 +396,107 @@ T3：排查消费端/调用方路径
 
 ---
 
+## 真实项目案例：GenericAgent Python → Go
+
+> **样本仓库**：[suifei/lang-migration-samples](https://github.com/suifei/lang-migration-samples)
+> 完整的 YAML 状态文件、IPO 注册表以及最终 Go 产出均已公开。
+
+本方法论已完整应用于一个生产级 AI Agent 框架：
+**[GenericAgent](https://github.com/suifei/lang-migration-samples/tree/main/genericagent)**（Python 3.11）
+→ **[go-GenericAgent](https://github.com/suifei/lang-migration-samples/tree/main/go-GenericAgent)**（Go 1.25）
+
+GenericAgent 是一个极简自演化自主 Agent 框架，支持 12 个聊天平台集成（Telegram、Discord、飞书、企业微信……）和 10 个记忆子系统。
+
+### 迁移结果
+
+| 指标 | 数值 | 来源 |
+|------|------|------|
+| 扫描源文件数 | 150 | [asset-inventory.yaml](https://github.com/suifei/lang-migration-samples/blob/main/migration_workspace/asset-inventory.yaml) |
+| 策略分布 | 52 翻译 · 15 适配 · 57 直接使用 · 26 仅参考 | |
+| 生态系统符号映射数 | 58（38 结构对等 · 10 行为对等 · 7 部分 · 3 无对应） | [ecosystem-map.yaml](https://github.com/suifei/lang-migration-samples/blob/main/migration_workspace/ecosystem-map.yaml) |
+| IPO 注册函数数 | 142 / 142 已记录并翻译 | [ipo-registry.yaml](https://github.com/suifei/lang-migration-samples/blob/main/migration_workspace/ipo-registry.yaml) |
+| Go 测试包通过数 | 37 / 37 | [migration-state.yaml](https://github.com/suifei/lang-migration-samples/blob/main/migration_workspace/migration-state.yaml) |
+| 测试覆盖率 | 60.1% | |
+| 验证检查项数 | 898 | |
+| 验证失败数 | **0** | |
+| 构建 / vet | ✅ 全部通过 | |
+| 完成阶段 | P0 → P5 全部 DONE | |
+| AI 工作会话数 | 约 7 次 | |
+
+所有阶段均已完成，由 [migration-state.yaml](https://github.com/suifei/lang-migration-samples/blob/main/migration_workspace/migration-state.yaml) 记录：
+
+```yaml
+phases:
+  P0_bootstrap:     DONE
+  P1_asset_scan:    DONE
+  P2_ecosystem_map: DONE
+  P3_ipo_analysis:  DONE
+  P4_translation:   DONE
+  P5_verification:  DONE
+```
+
+### 生态系统映射捕获了什么
+
+来自 [ecosystem-map.yaml](https://github.com/suifei/lang-migration-samples/blob/main/migration_workspace/ecosystem-map.yaml) 的代表性条目，包含非平凡的差距：
+
+| Python | Go | 对等类型 | 决策 |
+|---|---|---|---|
+| `asyncio` | goroutines + channels | 结构对等 | `async def` → goroutine；`await` → channel 接收 |
+| `collections.defaultdict` | `map[K]V` | 行为对等 | 无自动初始化，需显式 `if _, ok := m[k]` |
+| `importlib`（动态导入） | 编译期注册 | 部分 | Go 无动态导入等价物；通过 `init()` 注册 |
+| `streamlit` | HTTP + SSE | 无对应 | 响应式 UI 无 Go 等价物；替换为 conductor 网页 UI |
+| `ultralytics`（YOLO） | ONNX Runtime + CGO | 无对应 | 导出模型为 ONNX；通过 `onnxruntime_go` 绑定；CGO 依赖 |
+
+### IPO 注册表记录了什么
+
+来自 [ipo-registry.yaml](https://github.com/suifei/lang-migration-samples/blob/main/migration_workspace/ipo-registry.yaml) 的魔术数字——每个都有源码行号、类型和推断用途：
+
+```yaml
+# agent_loop.py — 轮次管理阈值
+magic_numbers:
+  - value: 40   type: iteration_limit  purpose: "交互模式默认最大轮次"
+  - value: 70   type: iteration_limit  purpose: "任务单次模式最大轮次"
+  - value: 100  type: iteration_limit  purpose: "计划模式硬上限"
+  - value: 0.6  type: threshold        purpose: "裁剪后目标上下文填充率"
+  - value: 10   type: iteration_limit  purpose: "每 N 轮重置工具 schema"
+
+# 推断不变量（P3 挖掘出的隐式契约）：
+inferred_invariants:
+  - "历史记录由 LLM 客户端后端管理——不在 messages 列表中 [推断自：函数体无 append 操作]"
+  - "bad_json 是保留内置工具，永远不在 JSON schema 中 [推断自：调度器特殊处理]"
+  - "未知工具会重置 last_tools，强制下一轮重发 schema [推断自：第 312 行]"
+```
+
+### 验证阶段发现的 Bug
+
+这些 Bug 由真实测试在真实数据上发现——纯代码审查无法检出：
+
+1. **Goroutine 死锁** — 流式 LLM 响应完成后 `streamCh` 未关闭，消费端 goroutine 的 `for-select` 永久阻塞。
+   修复：在 `agent.Run()` 中 `defer close(loopDone)` 之前加入 `defer close(streamCh)`。
+   根因：`side_effect_dropped` — Python 生成器耗尽是隐式的，Go channel 需要显式关闭。
+
+2. **`init()` panic** — 包级 `init()` 对含前瞻语法（`(?=…)`）的正则调用了 `regexp.MustCompile`，而 Go 的 `regexp`（RE2 语义）不支持该语法。
+   根因：`ecosystem_gap_unapplied` — 生态映射表中 `re` → `regexp` 条目注明了 RE2 限制，但该前瞻模式在 P3 分析时未被捕获。
+
+### 间隙报告的真实发现
+
+[gap-report.yaml](https://github.com/suifei/lang-migration-samples/blob/main/migration_workspace/gap-report.yaml) 的 P6 审计结果：
+
+- **14 个路径偏移** — 文件存在于 Go 输出中，但路径与规划不符
+- **14 个真正缺失** — 主要是 CLI 入口点和 shell 脚本
+- **33 个二进制资产缺失** — 演示图片、GIF、PDF（不影响编译；桌面 UI 需要）
+- **8 个有意跳过** — 无 Go 等价物的 GUI 前端（`qtapp.py` PySide6、`stapp.py` Streamlit）
+
+方法论的间隙报告让这些残余不完整之处**可见且可枚举**，而不是被"100% 完成"的声明所掩盖。
+
+### 客观评估
+
+整个迁移需要约 **7 次 AI 工作会话**的持续人工参与：审批生态差距决策、解决路径偏移、验证 Bug 修复。它并非完全自主——在生态系统决策节点以及方法论发出 `BLOCKED` 状态时，仍需人工判断。
+
+方法论的价值不在于速度，而在于**结构保真度与可验证的完整性**：每个翻译函数都有 IPO 条目；每个魔术数字都有源码行号；每个生态差距都有文档记录的补偿策略；每次测试失败都经过溯源分类，才进入修复流程。
+
+---
+
 ## 运行环境
 
 该方法论是代理无关的。它被设计为在以下环境中运行：
