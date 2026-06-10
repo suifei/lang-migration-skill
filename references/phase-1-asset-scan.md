@@ -104,6 +104,81 @@ For each `translate` or `adapt` file, read the imports/includes and list them in
     - typing
 ```
 
+### Step 3.5: Detect Directory-Load Patterns
+
+Static import analysis (Step 3) only captures explicit `import`/`require` statements.
+Some codebases — especially agents, CLIs, and data pipelines — load files by scanning
+entire directories at runtime (e.g., `os.listdir("skills/")`, `glob("references/*.md")`).
+These patterns create **implicit runtime dependencies** on every file in those directories,
+but no single file appears in any import statement.
+
+**Why this matters for migration**: if a source agent scans `skills/lang-migration/references/*.md`
+at runtime to load documentation, every `*.md` file in that directory is a runtime dependency.
+Without this step, those files would be classified as `reference_only` (never migrated) even
+though the target agent also needs them present and loadable.
+
+#### In full_mode (Claude Code / OpenCode with bash)
+
+Run scan_assets with the `--dirload-report` flag:
+
+```bash
+python3 skills/lang-migration/scripts/scan_assets.py \
+  --source <source_dir> \
+  --output migration_workspace/asset-inventory.yaml \
+  --dirload-report
+```
+
+The script automatically:
+1. Scans all source code files for the following pattern families:
+   - **Python**: `os.listdir`, `os.scandir`, `os.walk`, `glob.glob`, `glob.iglob`, `Path.glob`, `Path.rglob`, `Path.iterdir`, `importlib.resources.files`, `pkgutil.iter_modules`
+   - **Go**: `os.ReadDir`, `filepath.WalkDir`, `filepath.Walk`, `filepath.Glob`, `ioutil.ReadDir`
+   - **JavaScript/TypeScript**: `fs.readdirSync`, `fs.readdir`, `glob.sync`, `fast-glob.sync`
+   - **Ruby**: `Dir.glob`, `Dir[]`
+   - **Rust**: `fs::read_dir`, `glob`
+2. Extracts the base directory from each call site (strips wildcard suffix from glob patterns)
+3. Tags every file under detected directories with `runtime_dependency: true`
+4. Upgrades strategy from `reference_only` or `preserve` → `direct_use` for tagged files
+5. Writes a `dirload_summary` block in `asset-inventory.yaml` listing every detected directory
+   and the code sites that reference it
+
+#### In editor_mode (Cursor / Copilot — no bash)
+
+Manually search for the following patterns across the source tree. For each match, identify
+the directory being scanned and mark every file inside it as `runtime_dependency: true` with
+strategy `direct_use`:
+
+```
+# Search for these terms in source code files:
+os.listdir    os.scandir    os.walk
+glob.glob     glob.iglob    rglob(     iterdir(
+os.ReadDir    filepath.Walk filepath.Glob
+fs.readdir    Dir.glob      fs::read_dir
+```
+
+For each match, record the loaded directory in the file's notes field:
+```yaml
+notes: "RUNTIME-DEPENDENCY: directory 'references/' is scanned at runtime by skills/loader.py:47"
+runtime_dependency: true
+runtime_dependency_dir: "references"
+```
+
+#### Strategy upgrade rules for runtime-loaded files
+
+| Original strategy | File type | Action |
+|---|---|---|
+| `reference_only` | `*.md`, `*.rst`, `*.txt` docs | Upgrade to `direct_use`; target must include unchanged |
+| `preserve` | `*.yaml`, `*.json`, `*.toml` data | Upgrade to `direct_use`; check if format must also be adapted |
+| `reference_only` with `p3_required: true` | algorithm docs | Keep `p3_required: true`; strategy becomes `direct_use` (load + read during P3) |
+| `translate` | source code in scanned dir | No change — already correct |
+
+**Exception**: if the file is generated output (e.g., a lock file in a dist/ directory scanned by a cleanup script), keep `generated` — the directory scan is incidental, not a content dependency.
+
+#### When to escalate to BLOCKED
+
+Block (do not guess) when:
+- The loaded path is a variable or interpolated expression (e.g., `os.listdir(self.skills_dir)`) — you cannot statically determine which directory; add a `BLOCKED` entry with `block_reason: "runtime path computed from variable; cannot determine which files are dependencies"`
+- The directory exists but contains files of wildly mixed types (source code + docs + binaries together) — annotate each file individually before deciding
+
 ### Step 4: Set p3_required
 
 Mark `p3_required: true` for:
@@ -159,8 +234,11 @@ Present the block using the standard blocking protocol from `SKILL.md`.
 - [ ] File count in `asset-inventory.yaml` matches `find . -type f | wc -l`
 - [ ] No file has `migration_strategy: ""` (empty)
 - [ ] All test fixture files are `direct_use`
-- [ ] All documentation files are `reference_only` or `preserve`
+- [ ] All documentation files are `reference_only` or `preserve` (or `direct_use` if runtime-loaded)
 - [ ] `depends_on_ecosystem` is populated for all `translate` files
+- [ ] Step 3.5 was run: source code was scanned for directory-load patterns
+- [ ] All `runtime_dependency: true` entries have been AI-reviewed to confirm `direct_use` is correct
+- [ ] Any variable-path directory-load patterns that could not be statically resolved are BLOCKED
 
 ---
 
