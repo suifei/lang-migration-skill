@@ -128,8 +128,8 @@ SOURCE_CODE_EXTS = {
 }
 
 # Directory-load patterns grouped by language.
-# Each tuple: (regex_pattern, call_name, group_index_for_path_arg)
-# The path capture group must match only the first string argument — i.e., a directory or glob path.
+# Each tuple: (regex_pattern, call_name). Capture group 1 must match the
+# first string argument — i.e., a literal directory or glob path.
 DIRLOAD_PATTERNS = [
     # Python — os module
     (r'os\.listdir\(\s*["\']([^"\']+)["\']', "os.listdir"),

@@ -286,9 +286,10 @@ files look dependency-free from static import analysis even though they are runt
   - FINDING format: `PGR-1-G: <src_file>:<line> loads directory '<dir>' at runtime but files under that directory are not tagged runtime_dependency: true in asset-inventory.yaml`
 
 - **Step 3** (if Step 2 passes): For every entry with `runtime_dependency: true`, verify:
-  - `migration_strategy` is NOT `reference_only` (must be `direct_use` or `adapt`)
+  - `migration_strategy` is NOT `reference_only` — any other strategy is acceptable
+    (`direct_use`/`adapt` for data files; `translate`/`preserve` are also valid, see schemas.md)
   - The entry has a non-empty `purpose` confirming the file is consumed at runtime
-  - FINDING format: `PGR-1-G: asset-inventory.yaml path=<path> — runtime_dependency: true but strategy is <value> (must be direct_use or adapt)`
+  - FINDING format: `PGR-1-G: asset-inventory.yaml path=<path> — runtime_dependency: true but strategy is reference_only (file would be excluded from target)`
 
 - PASS: Step 3.5 was logged, all directory-load patterns are matched, all tagged files have
   non-`reference_only` strategies

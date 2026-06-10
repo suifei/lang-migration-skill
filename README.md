@@ -24,7 +24,7 @@
 [![Anti-Cheating](https://img.shields.io/badge/Anti--Cheating-Protocol_Enforced-red)](#the-evidence-obligation-protocol)
 [![Works With](https://img.shields.io/badge/Works_With-Claude_Code_|_Cursor_|_Copilot_|_OpenCode-purple)](#runtime-environments)
 [![ClawHub](https://clawhub.ai/favicon.ico)](https://clawhub.ai/suifei/lang-migration)
-[![Version: 1.3](https://img.shields.io/badge/Version-1.3-blue)](#whats-new)
+[![Version: 1.4](https://img.shields.io/badge/Version-1.4-blue)](#whats-new)
 
 **English | [中文](README.zh-CN.md)**
 
@@ -33,15 +33,18 @@ persistent state, and verifiable proof that the AI actually did the work.*
 
 ### ✨ **What's New**
 
+**v1.4 — AST Bridge (tree-sitter Machine Truth) + Invisible Runtime Dependency Detection**
+A shipped toolchain (`scripts/ast_bridge.py`) extracts function boundaries, branch counts, call
+sites, and literals directly from source ASTs — structural claims are now verified against machine
+truth, not AI assertion. Stage 2 generates draft target skeletons with `TODO(migrate)` markers.
+Plus: a 3-layer defense (static pattern scan → dynamic runtime trace → P5 closure check) catches
+files loaded via directory traversal (`glob`, `os.listdir`) that static import analysis cannot see.
+[Learn more →](CHANGELOG.md#v14--2026-06-10)
+
 **v1.3 — Bug Triage Protocol + Real-World Validation**
 Every P5 test failure now goes through a mandatory 3-step triage before any fix is attempted.
 Only 1 of 5 verdicts leads to modifying the translated function. Four new root cause categories.
 Validated against a real Python→Go migration (GenericAgent → go-GenericAgent). [Learn more →](#bug-triage-protocol-classify-before-fix)
-
-**v1.2 — Phase Gate Review (PGR)**
-Every phase transition now requires passing an **autonomous self-auditing loop** before advancing.
-The AI enumerates all expected outputs, audits each one, fixes any gap, and re-audits — until **zero findings**.
-Only then is the phase marked DONE. No human involvement. No rubber-stamping. [Learn more →](CHANGELOG.md#v12--2026-05-15)
 
 </div>
 
@@ -553,6 +556,7 @@ lang-migration/
 │   ├── phase-6-gap-report.md
 │   ├── phase-gate-review.md              ← PGR autonomous closure protocol (v1.2)
 │   ├── tdd-retrospective.md              ← Fix retrospective protocol (v1.1)
+│   ├── ast-bridge.md                     ← tree-sitter AST integration protocol (v1.4)
 │   └── lang-pairs/
 │       ├── TEMPLATE.md                   ← Extend to new language pairs
 │       ├── python-rust.md
@@ -570,7 +574,9 @@ lang-migration/
 │       ├── bun-python.md
 │       └── typescript-python.md
 └── scripts/
-    ├── scan_assets.py                    ← Phase 1 file scanner
+    ├── scan_assets.py                    ← Phase 1 file scanner (+ --dirload-report, v1.4)
+    ├── trace_runtime.py                  ← Phase 1 dynamic file-access tracer (v1.4)
+    ├── ast_bridge.py                     ← tree-sitter AST toolchain: doctor/index/verify/skeleton/todos (v1.4)
     └── gap_report.py                     ← Phase 6 completeness auditor
 ```
 
