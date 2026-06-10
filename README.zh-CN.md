@@ -26,7 +26,7 @@ Skillhub:[https://skillhub.cn/skills/lang-migration](https://skillhub.cn/skills/
 [![阶段: P0–P6](https://img.shields.io/badge/Phases-P0_through_P6-green)](#六阶段流水线)
 [![防作弊](https://img.shields.io/badge/Anti--Cheating-Protocol_Enforced-red)](#核心创新证据义务)
 [![兼容工具](https://img.shields.io/badge/Works_With-Claude_Code_|_Cursor_|_Copilot_|_OpenCode-purple)](#运行环境)
-[![版本: 1.3](https://img.shields.io/badge/Version-1.3-blue)](#最新更新)
+[![版本: 1.4](https://img.shields.io/badge/Version-1.4-blue)](#最新更新)
 
 **[English](README.md) | 中文**
 
@@ -34,13 +34,15 @@ Skillhub:[https://skillhub.cn/skills/lang-migration](https://skillhub.cn/skills/
 
 ### ✨ **最新更新**
 
+**v1.4 — AST Bridge（tree-sitter 机器真值）+ 隐形运行时依赖检测**
+随附工具链 `scripts/ast_bridge.py` 直接从源代码 AST 提取函数边界、分支数、调用点和字面量 —
+结构性声明现在对照机器真值验证，而非依赖 AI 自述。Stage 2 生成带 `TODO(migrate)` 标记的目标语言骨架。
+另有三层防御（静态模式扫描 → 动态运行时追踪 → P5 封闭性检查），捕获通过目录遍历
+（`glob`、`os.listdir`）加载、静态 import 分析无法发现的文件依赖。[了解更多 →](CHANGELOG.md#v14--2026-06-10)
+
 **v1.3 — Bug溯源分类协议 + 真实项目验证**
 P5中所有测试失败，在执行任何修复之前，必须通过强制性的3步溯源分类。五种分类结果中，只有1种会修改翻译函数。
 新增4个根因类别。已在真实Python→Go迁移项目（GenericAgent → go-GenericAgent）中完成验证。[了解更多 →](#bug溯源分类协议先分类再修复)
-
-**v1.2 — 阶段门禁复盘（PGR）**
-每个阶段流转前，必须通过**自主自审循环**才能推进。AI枚举所有预期产出，逐项审计，修复发现的问题，再次审计——直至**零发现**。
-只有这时，阶段才被标记为完成。全程无需人类干预，杜绝橡皮图章式推进。[了解更多 →](CHANGELOG.md#v12--2026-05-15)
 
 </div>
 
@@ -545,6 +547,7 @@ lang-migration/
 │   ├── phase-6-gap-report.md
 │   ├── phase-gate-review.md              ← PGR 自主闭环协议（v1.2）
 │   ├── tdd-retrospective.md              ← 修复复盘协议（v1.1）
+│   ├── ast-bridge.md                     ← tree-sitter AST 集成协议（v1.4）
 │   └── lang-pairs/
 │       ├── TEMPLATE.md                   ← 扩展到新语言对
 │       ├── python-rust.md
@@ -562,7 +565,9 @@ lang-migration/
 │       ├── bun-python.md
 │       └── typescript-python.md
 └── scripts/
-    ├── scan_assets.py                    ← 第1阶段文件扫描器
+    ├── scan_assets.py                    ← 第1阶段文件扫描器（v1.4 新增 --dirload-report）
+    ├── trace_runtime.py                  ← 第1阶段动态文件访问追踪器（v1.4）
+    ├── ast_bridge.py                     ← tree-sitter AST 工具链：doctor/index/verify/skeleton/todos（v1.4）
     └── gap_report.py                     ← 第6阶段完整性审计器
 ```
 
