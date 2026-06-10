@@ -108,7 +108,8 @@ In **editor_mode**: generate file lists manually by reading directory structure;
     ├── ipo-registry.yaml
     ├── retrospective-checklist.yaml
     ├── ast-index.yaml            ← derived (full_mode): machine truth from scripts/ast_bridge.py
-    └── skeleton-map.yaml         ← derived (full_mode): Stage 2 skeleton↔IPO mapping
+    ├── skeleton-map.yaml         ← derived (full_mode): Stage 2 skeleton↔IPO mapping
+    └── runtime-access-trace.yaml ← derived (full_mode): observed file access from scripts/trace_runtime.py
 ```
 
 ---

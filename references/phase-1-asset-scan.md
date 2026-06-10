@@ -117,7 +117,19 @@ at runtime to load documentation, every `*.md` file in that directory is a runti
 Without this step, those files would be classified as `reference_only` (never migrated) even
 though the target agent also needs them present and loadable.
 
-#### In full_mode (Claude Code / OpenCode with bash)
+This step has two levels. Level 1 (static) always runs. Level 2 (dynamic) runs whenever
+the source project's test suite is runnable — it is the authoritative check because it
+observes actual file access instead of guessing from code patterns.
+
+| Level | Method | Catches | Misses |
+|---|---|---|---|
+| 1 — Static | regex scan for directory-load calls | literal paths (`os.listdir("skills/")`) | variable paths, framework loaders, config-driven paths |
+| 2 — Dynamic | run tests under file-access tracing | everything tests actually open, incl. variable paths | code paths not exercised by the test command |
+
+The two levels are complementary: Level 1 sees untested branches; Level 2 sees what static
+analysis cannot. Neither alone is complete — run both when possible.
+
+#### Level 1: Static pattern scan — in full_mode (Claude Code / OpenCode with bash)
 
 Run scan_assets with the `--dirload-report` flag:
 
@@ -141,7 +153,53 @@ The script automatically:
 5. Writes a `dirload_summary` block in `asset-inventory.yaml` listing every detected directory
    and the code sites that reference it
 
-#### In editor_mode (Cursor / Copilot — no bash)
+#### Level 2: Dynamic runtime trace — full_mode, when source tests are runnable
+
+Run the source project's test suite under file-access tracing. Every file the project
+actually opens is recorded — machine truth, immune to the variable-path blind spot:
+
+```bash
+# Python projects (audit-hook mode — zero external dependencies):
+python3 skills/lang-migration/scripts/trace_runtime.py \
+  --source <source_dir> \
+  --inventory migration_workspace/asset-inventory.yaml \
+  --output migration_workspace/runtime-access-trace.yaml \
+  -- python -m pytest
+
+# Any language on Linux (requires strace):
+python3 skills/lang-migration/scripts/trace_runtime.py \
+  --source <source_dir> \
+  --inventory migration_workspace/asset-inventory.yaml \
+  --output migration_workspace/runtime-access-trace.yaml \
+  --mode strace -- go test ./...
+```
+
+The tracer:
+1. Runs the test command with file-open monitoring (Python `sys.addaudithook`, or `strace -f -e trace=openat`)
+2. Filters captured opens to files under `<source_dir>` (excluding caches/venvs)
+3. Diffs against `asset-inventory.yaml` and writes `runtime-access-trace.yaml`
+4. Exit code 1 with FINDINGS when:
+   - an opened file has **no inventory entry** (`missing_from_inventory`), or
+   - an opened file has strategy **`reference_only`** (`runtime_use_of_reference_only`) —
+     the file would be excluded from the target despite being read at runtime
+5. Emits informational `suggestions` for opened files not yet tagged `runtime_dependency: true`
+
+**For each finding**: upgrade the entry's strategy (`reference_only` → `direct_use` or `adapt`),
+set `runtime_dependency: true`, cite the trace in `notes`, then **re-run the trace** until exit
+code 0. This also resolves the Level 1 BLOCKED cases for variable paths — the trace shows
+exactly which files the variable path resolved to.
+
+**Coverage caveat**: the trace only sees code paths the test command exercised. A directory
+loaded by an untested branch will not appear. This is why Level 1 still runs first, and why
+the final safety net is the PGR-5-F closure check (target tests must pass using only
+inventory-declared files).
+
+**When tests are not runnable** (missing dependencies, broken environment): skip Level 2,
+record the reason in `migration-state.yaml` decisions_log
+(e.g., `"Step 3.5 Level 2 skipped: source test suite requires CUDA hardware"`), and rely on
+Level 1 + PGR-5-F.
+
+#### Level 1 fallback: in editor_mode (Cursor / Copilot — no bash)
 
 Manually search for the following patterns across the source tree. For each match, identify
 the directory being scanned and mark every file inside it as `runtime_dependency: true` with
@@ -176,7 +234,11 @@ runtime_dependency_dir: "references"
 #### When to escalate to BLOCKED
 
 Block (do not guess) when:
-- The loaded path is a variable or interpolated expression (e.g., `os.listdir(self.skills_dir)`) — you cannot statically determine which directory; add a `BLOCKED` entry with `block_reason: "runtime path computed from variable; cannot determine which files are dependencies"`
+- The loaded path is a variable or interpolated expression (e.g., `os.listdir(self.skills_dir)`)
+  AND Level 2 dynamic tracing is not available (tests not runnable, or editor_mode) — add a
+  `BLOCKED` entry with `block_reason: "runtime path computed from variable; cannot determine which files are dependencies"`.
+  When Level 2 IS available, run the trace first — it resolves the variable to the actual files
+  opened, and no block is needed.
 - The directory exists but contains files of wildly mixed types (source code + docs + binaries together) — annotate each file individually before deciding
 
 ### Step 4: Set p3_required
@@ -236,9 +298,10 @@ Present the block using the standard blocking protocol from `SKILL.md`.
 - [ ] All test fixture files are `direct_use`
 - [ ] All documentation files are `reference_only` or `preserve` (or `direct_use` if runtime-loaded)
 - [ ] `depends_on_ecosystem` is populated for all `translate` files
-- [ ] Step 3.5 was run: source code was scanned for directory-load patterns
+- [ ] Step 3.5 Level 1 was run: source code was scanned for directory-load patterns
+- [ ] Step 3.5 Level 2 was run (trace exit code 0), OR the skip reason is recorded in decisions_log
 - [ ] All `runtime_dependency: true` entries have been AI-reviewed to confirm `direct_use` is correct
-- [ ] Any variable-path directory-load patterns that could not be statically resolved are BLOCKED
+- [ ] Any variable-path directory-load patterns not resolved by Level 2 tracing are BLOCKED
 
 ---
 

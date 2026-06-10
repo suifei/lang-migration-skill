@@ -268,6 +268,14 @@ files look dependency-free from static import analysis even though they are runt
   - A note in `migration-state.yaml` decisions_log saying "Step 3.5 directory-load scan: [result]"
   - FINDING if neither exists: `PGR-1-G: Step 3.5 (directory-load pattern scan) was not performed`
 
+- **Step 1b** (Level 2 trace): Verify that the dynamic runtime trace was run or its skip was justified:
+  - `migration_workspace/runtime-access-trace.yaml` exists with `meta.findings_count: 0`, OR
+  - decisions_log contains a "Step 3.5 Level 2 skipped: <reason>" entry
+  - If the trace file exists with `findings_count > 0`:
+    FINDING format: `PGR-1-G: runtime-access-trace.yaml has <N> unresolved findings — fix inventory and re-run trace`
+  - If neither trace file nor skip reason exists:
+    FINDING format: `PGR-1-G: Step 3.5 Level 2 (runtime trace) neither run nor justified-skipped`
+
 - **Step 2** (if Step 1 passes): Search source code files for at least these terms:
   ```
   listdir   scandir   os.walk   glob(   rglob(   iterdir(
@@ -293,6 +301,8 @@ files look dependency-free from static import analysis even though they are runt
 - Wrong counts: recount and update the `by_strategy` block
 - New file found: classify and add entry; update counts
 - Step 3.5 not performed: run `scan_assets.py --dirload-report` (full_mode) or manually search for directory-load patterns (editor_mode); record result in decisions_log
+- Level 2 trace not run: run `trace_runtime.py` against the source test suite, or record a specific skip reason in decisions_log (a generic "skipped" is not a justification)
+- Trace findings unresolved: for each finding in `runtime-access-trace.yaml`, upgrade the entry's strategy and tag `runtime_dependency: true`, then re-run the trace until `findings_count: 0`
 - Untagged directory-load dependency: add `runtime_dependency: true`, upgrade strategy from `reference_only` → `direct_use`, add evidence in notes field
 - Tagged file with `reference_only` strategy: upgrade to `direct_use` and verify purpose confirms runtime consumption
 
@@ -524,6 +534,28 @@ Every function verified structurally and behaviorally; gap report run; retrospec
 - Verify the Final Retrospective Checklist Summary (P5-end version) has been output in the session response
 - FINDING format: `PGR-5-E: Final Retrospective Checklist Summary not yet output for P5`
 
+**Check PGR-5-F: Closure — target contains exactly the files the inventory declares**
+
+This is the final safety net for runtime dependencies that all earlier detection missed
+(Step 3.5 Levels 1–2, PGR-1-G). It verifies by *negative space*: if the target test suite
+passes using only inventory-declared files, no runtime dependency was silently dropped.
+
+- **Step 1 — file set closure**: enumerate all files in `target_dir` (excluding build output
+  and the target language's generated artifacts). Every file must correspond to an inventory
+  entry whose strategy is `translate`, `adapt`, `direct_use`, `preserve`, or `generated` with
+  a matching `target_path`.
+  - FINDING format: `PGR-5-F: target file <path> exists but no inventory entry declares it (orphan)`
+  - FINDING format: `PGR-5-F: inventory entry <path> (strategy: <s>) declares target_path <tp> but file is missing from target_dir`
+- **Step 2 — runtime closure**: re-run the full target test suite from a clean checkout/copy of
+  `target_dir` containing ONLY the files from Step 1's declared set. All tests must pass.
+  A file-not-found error during this run means a runtime dependency exists that the inventory
+  never captured.
+  - FINDING format: `PGR-5-F: target test suite failed under closure run — <test> reports missing file <path>`
+- **Step 3 — back-propagation**: for every Step 2 finding, trace the missing file back to its
+  source-project counterpart, add/fix the inventory entry (strategy + `runtime_dependency: true`),
+  copy or translate the file, and re-run from Step 1.
+- PASS: zero orphans, zero missing declared files, full test suite green under the closure run
+
 ### What "fixed" means for PGR-5
 
 - Missing TEST OUTPUT EVIDENCE: re-run the test suite; output TEST OUTPUT EVIDENCE block
@@ -531,3 +563,6 @@ Every function verified structurally and behaviorally; gap report run; retrospec
 - Gap Report not run: run P6 Gap Report protocol now; output the full report
 - Accidental gaps found: return to the relevant phase (P4 or P3) to close the gap; re-run verification
 - Missing Checklist Summary: generate and output the summary now
+- Orphan target file: either add the missing inventory entry (if the file is legitimate) or delete the file (if it is stray output); recount
+- Missing declared file: produce it per its strategy (translate/copy/adapt) and re-verify
+- Closure test failure: back-propagate per PGR-5-F Step 3; the fix lives in the inventory + file set, never in weakening the test
