@@ -324,9 +324,10 @@ A complete `ipo-registry.yaml` with every function documented and every field po
 ### Checks
 
 **Check PGR-3-A: All translate-strategy functions are in registry**
-- For every source file with `migration_strategy: translate`:
-  - Extract all function/method definitions
-- Cross-reference against entries in `ipo-registry.yaml`
+- In full_mode with AST Bridge: diff the function list in `ast-index.yaml` against
+  ipo-registry entry ids (mechanical, exact)
+- Otherwise: for every source file with `migration_strategy: translate`, extract all
+  function/method definitions and cross-reference against entries in `ipo-registry.yaml`
 - FAIL if any function is missing AND its `translation_status != SKIP`
 - FINDING format: `PGR-3-A: function <source_file>::<fn_name> not in ipo-registry.yaml (not marked SKIP)`
 
@@ -365,12 +366,14 @@ re-reads the source directly and compares against the IPO entry's step descripti
 
 **Check PGR-3-G: Branch coverage — steps_count ≥ branch_count**
 - For every entry in ipo-registry.yaml:
-  - Re-read the source file at the function's line range (`source_lines` from any step)
-  - Count the number of `if/elif/else/for/while/try/except` branches in the function body
+  - In full_mode with AST Bridge: take `branch_count` from the function's `ast-index.yaml`
+    entry (machine-extracted, exact)
+  - Otherwise: re-read the source file at the function's line range and count the
+    `if/elif/else/for/while/try/except` branches in the function body
   - Count the number of entries in `process.steps`
-  - Verify `steps_count >= branch_count_in_source`
+  - Verify `steps_count >= branch_count`
 - A collapsed entry is one where multiple conditional branches were merged into a single step
-- Note: READ_EVIDENCE `branch_count` is ephemeral (not stored in YAML); re-count from source
+- Note: READ_EVIDENCE `branch_count` is ephemeral (not stored in YAML); use the index or re-count
 - FINDING format: `PGR-3-G: entry id=<id> — steps_count=<s> < branch_count=<b>; branches collapsed`
 
 **Check PGR-3-H: Post-construction call-site scan**
@@ -439,6 +442,13 @@ Every translate-strategy asset has a target file; every function is translated; 
 - PASS: exit code 0, no errors
 - FINDING format: `PGR-4-E: build failed — <compiler output excerpt>`
 
+**Check PGR-4-F: No TODO(migrate) markers remain** (only when AST Bridge Stage 2 was used)
+- Run `grep -rn "TODO(migrate)" <target_dir>`
+- PASS: zero hits AND every ipo-registry `ast_bridge.todo_count_remaining` is 0
+- A marker deleted without implementing the corresponding code is task fraud: cross-check
+  that the IPO step covering that source line has target code (via `target_lines`)
+- FINDING format: `PGR-4-F: TODO(migrate) marker remains at <target_file>:<line> [source: <file>:<line>]`
+
 ### What "fixed" means for PGR-4
 
 - Missing target file: translate the asset using IPO registry (full Phase 4 protocol)
@@ -446,6 +456,7 @@ Every translate-strategy asset has a target file; every function is translated; 
 - Unapplied ecosystem map update: apply the update from the retrospective entry to ecosystem-map.yaml
 - Missing Checklist Summary: generate and output the summary now
 - Build failure: diagnose and fix the compilation error; trigger TDD Retrospective if a code fix is applied
+- Remaining TODO(migrate) marker (PGR-4-F): implement the statement per the IPO step covering that source line; decrement `todo_count_remaining`; never delete a marker without writing the code
 
 ---
 

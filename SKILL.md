@@ -55,8 +55,8 @@ without actually doing the work. Every phase has mechanisms to detect and preven
 | Phase | Required Evidence |
 |---|---|
 | P2 | `confirmation_evidence` block per CONFIRMED entry |
-| P3 | `READ_EVIDENCE` + `BEHAVIOR_PROOF` per function; `source_lines` in every step; `source_line` on every magic number |
-| P4 | Compilation succeeds; IPO entry updated with `target_lines`; **every fix triggers TDD Retrospective** |
+| P3 | `READ_EVIDENCE` + `BEHAVIOR_PROOF` per function; `source_lines` in every step; `source_line` on every magic number; in full_mode, structural READ_EVIDENCE fields must match `ast-index.yaml` (machine truth) |
+| P4 | Compilation succeeds; IPO entry updated with `target_lines`; **every fix triggers TDD Retrospective**; if AST skeletons were used, zero `TODO(migrate)` markers remain (PGR-4-F) |
 | P5 | **TEST OUTPUT EVIDENCE** (actual runner output, not just "tests pass"); **every fix triggers TDD Retrospective**; **full suite re-run after each fix**; **Checklist Summary at phase end** |
 | Fix | `retrospective-checklist.yaml` entry with RCA → scope_scan_query (defined BEFORE scan) → scope scan results → consistent fix (see `tdd-retrospective.md`) |
 | **PGR** | **Full audit report output in response** listing every item checked; each FINDING citing exact artifact (file path, field, value); each FIXED citing same artifact after change; `findings_count: 0` proven by enumerated item list; `phase_gates.PGR_N.passed_at` timestamp set only after zero-findings pass |
@@ -103,7 +103,10 @@ In **editor_mode**: generate file lists manually by reading directory structure;
     ├── migration-state.yaml      ← SESSION ENTRY POINT: read this first every session
     ├── asset-inventory.yaml
     ├── ecosystem-map.yaml
-    └── ipo-registry.yaml
+    ├── ipo-registry.yaml
+    ├── retrospective-checklist.yaml
+    ├── ast-index.yaml            ← derived (full_mode): machine truth from tree-sitter; regenerable
+    └── scripts/                  ← project-specific AST scripts (ast_extract, ast_transform)
 ```
 
 ---
@@ -156,6 +159,7 @@ Each phase has a detailed reference file. Load it when entering that phase:
 | P6    | `references/phase-6-gap-report.md` |
 | **Fix** | **`references/tdd-retrospective.md` ← mandatory on every fix in P4/P5** |
 | **PGR** | **`references/phase-gate-review.md` ← mandatory between every phase transition** |
+| **AST** | **`references/ast-bridge.md` ← tree-sitter integration: REQUIRED in full_mode at P3 entry (AST Index); RECOMMENDED at P4 entry (Skeleton Transform)** |
 
 ---
 

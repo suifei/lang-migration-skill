@@ -49,6 +49,13 @@ If the AI cannot produce this block with accurate values, it has not read the fi
 This acts as a reading receipt. A fabricated block will produce wrong line numbers,
 wrong literal counts, or wrong statement text — detectable during P5 verification.
 
+**In full_mode with AST Bridge** (`references/ast-bridge.md`): the structural fields
+(`file_read` range, `literal_count`, `call_count`, `branch_count`) MUST match the
+corresponding `ast-index.yaml` entry — they are machine-verified, not self-reported.
+A mismatch blocks the entry until resolved (either the AI miscounted or the extraction
+script is buggy). `first_statement` / `last_statement` remain manual: they are the
+proof that the body was actually read, which no index can substitute.
+
 ---
 
 ## Anti-Cheating Protocol: Mandatory BEHAVIOR_PROOF
@@ -302,22 +309,29 @@ Never analyze a function in isolation.
 
 ## Execution Order
 
-**Pre-Step: Build preliminary calls graph before per-function analysis begins.**
+**Pre-Step: Build the calls graph before per-function analysis begins.**
 
-Before starting any per-function READ_EVIDENCE analysis:
+**In full_mode — AST Index (REQUIRED)**: execute Stage 1 of `references/ast-bridge.md`.
+The AI writes a tree-sitter extraction script, validates it on 2 functions, and generates
+`migration_workspace/ast-index.yaml` containing machine-extracted function boundaries,
+line numbers, branch counts, call sites, literals, and comments for every
+`translate`-strategy file. The topological order comes from the index's `call_sites`.
+
+**In editor_mode — shallow scan (fallback)**:
 1. Scan all `translate`-strategy source files (grep for function/method definitions + call sites)
 2. Build a preliminary `calls` adjacency map: `caller → [callee1, callee2, ...]`
 3. This map does NOT require reading function bodies yet — just extract call names
 
-This pre-step resolves the chicken-and-egg problem: you need the calls graph to determine
-topological order, but you don't have IPO entries yet. Shallow scanning (function names and
-call-site grep) is sufficient for ordering.
+Either way, this pre-step resolves the chicken-and-egg problem: you need the calls graph
+to determine topological order, but you don't have IPO entries yet.
 
 **Then process in topological order** — leaf functions first, callers after callees.
 This ensures that when documenting a caller, all callees are already understood.
 
 If a callee is discovered during analysis that was not in the preliminary graph,
 flag it as a missing entry and add it to the processing queue before the caller.
+(In full_mode this should not happen — if it does, the extraction script has a bug;
+fix and regenerate the index.)
 
 ---
 
@@ -385,6 +399,7 @@ The self-verification report must appear in the AI's response — not silently i
 - [ ] Branch coverage: for every function, `steps_count >= branch_count` (READ_EVIDENCE `branch_count`)
 - [ ] Post-construction check: for every function returning an object, call sites scanned for `obj.attr = X` assignments; each found is in caller's `side_effects`
 - [ ] Stateful output marker: functions accumulating output across calls have `non_deterministic: false` AND at least one `side_effects` entry flagging the accumulation
+- [ ] full_mode only: `ast-index.yaml` generated, extraction script validated (2/2 functions matched), and every READ_EVIDENCE structural field matched the index
 - [ ] Self-verification CHECK 1: PASS
 - [ ] Self-verification CHECK 2: PASS
 - [ ] Self-verification CHECK 3: PASS
