@@ -55,12 +55,20 @@ A P3 with empty fields was batch-fabricated and will produce structurally wrong 
 If Stage 1 of `references/ast-bridge.md` was executed in P3 (ast-index.yaml exists),
 Stage 2 is RECOMMENDED before per-function translation begins:
 
-1. Write `migration_workspace/scripts/ast_transform.<py|js>` per the ast-bridge protocol
-2. Generate draft target files: signatures via the lang-pair core type table,
-   control-flow shells preserved branch-for-branch, comments migrated,
-   every non-mechanical statement emitted as `// TODO(migrate): <original text> [source: file:line]`
-3. Record per-function `ast_bridge` blocks (`skeleton_file`, `skeleton_lines`,
-   `todo_count_initial/remaining`) in ipo-registry.yaml
+```bash
+python3 skills/lang-migration/scripts/ast_bridge.py skeleton \
+  --index migration_workspace/ast-index.yaml \
+  --source-lang <src> --target-lang <tgt> \
+  --target-dir <target_dir> \
+  --map-output migration_workspace/skeleton-map.yaml
+```
+
+This generates draft target files (signatures via the lang-pair core type table,
+control-flow shells preserved branch-for-branch, comments migrated, every non-mechanical
+statement emitted as `// TODO(migrate): <original text> [source: file:line]`), plus
+`skeleton-map.yaml`. Merge each map entry into its IPO entry as the `ast_bridge` block
+(`skeleton_file`, `skeleton_lines`, `todo_count_initial/remaining`).
+The toolchain ships python→go; other pairs use the fallback in ast-bridge.md or manual P4.
 
 P4 translation then becomes **filling each TODO per the IPO contract** — the skeleton is
 scaffolding, never the specification. The IPO entry remains authoritative: filling a TODO

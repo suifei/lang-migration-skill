@@ -311,11 +311,21 @@ Never analyze a function in isolation.
 
 **Pre-Step: Build the calls graph before per-function analysis begins.**
 
-**In full_mode — AST Index (REQUIRED)**: execute Stage 1 of `references/ast-bridge.md`.
-The AI writes a tree-sitter extraction script, validates it on 2 functions, and generates
-`migration_workspace/ast-index.yaml` containing machine-extracted function boundaries,
-line numbers, branch counts, call sites, literals, and comments for every
-`translate`-strategy file. The topological order comes from the index's `call_sites`.
+**In full_mode — AST Index (REQUIRED)**: execute Stage 1 of `references/ast-bridge.md`
+using the shipped toolchain:
+
+```bash
+python3 skills/lang-migration/scripts/ast_bridge.py doctor --langs <src>,<tgt> --install
+python3 skills/lang-migration/scripts/ast_bridge.py index \
+  --source <source_dir> --lang <source_lang> \
+  --files-from migration_workspace/asset-inventory.yaml \
+  --output migration_workspace/ast-index.yaml
+```
+
+Then spot-validate the output on 2 functions (AST INDEX VALIDATION block, see ast-bridge.md).
+The index contains machine-extracted function boundaries, line numbers, branch counts,
+call sites, literals, and comments for every `translate`-strategy file. The topological
+order comes from the index's `call_sites`.
 
 **In editor_mode — shallow scan (fallback)**:
 1. Scan all `translate`-strategy source files (grep for function/method definitions + call sites)

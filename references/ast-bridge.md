@@ -3,21 +3,60 @@
 **Goal**: Replace probabilistic LLM reading with machine-generated ground truth for all
 *structural* facts, and bootstrap P4 with mechanically generated draft code.
 
-The bridge uses [tree-sitter](https://tree-sitter.github.io/tree-sitter/) — incremental
-parsers with grammars for every language this skill supports. The AI writes
-project-specific scripts that call tree-sitter; the skill does not ship a universal
-transpiler because node types differ per grammar.
+The bridge uses [tree-sitter](https://tree-sitter.github.io/tree-sitter/).
+**The skill SHIPS the toolchain**: `scripts/ast_bridge.py` — a single-entrypoint CLI the
+AI calls directly. Do NOT write your own extraction script unless the toolchain reports
+your language as unsupported (see Fallback section).
 
 **Two stages, two integration points:**
 
-| Stage | Phase | Artifact | Status |
-|---|---|---|---|
-| Stage 1: AST Index | P3 pre-pass | `migration_workspace/ast-index.yaml` | **REQUIRED in full_mode** |
-| Stage 2: AST Skeleton Transform | P4 bootstrap | Draft target files with `TODO(migrate)` markers | **RECOMMENDED in full_mode** |
+| Stage | Phase | Command | Artifact | Status |
+|---|---|---|---|---|
+| Stage 1: AST Index | P3 pre-pass | `ast_bridge.py index` | `migration_workspace/ast-index.yaml` | **REQUIRED in full_mode** |
+| Stage 2: AST Skeleton Transform | P4 bootstrap | `ast_bridge.py skeleton` | Draft target files + `skeleton-map.yaml` | **RECOMMENDED in full_mode** |
 
-In **editor_mode** (no script execution): skip both stages; fall back to the manual
+In **editor_mode** (no command execution): skip both stages; fall back to the manual
 protocols in `phase-3-ipo-analysis.md` and `phase-4-translation.md`. Record the skip in
 `migration-state.yaml` `decisions_log` with reason `editor_mode: no script execution`.
+Note: if your editor agent CAN run terminal commands (e.g., Cursor agent mode), treat
+this as full_mode for the AST Bridge — the toolchain is plain CLI.
+
+---
+
+## Toolchain Reference (`scripts/ast_bridge.py`)
+
+Designed LLM-first: no interactive prompts, deterministic YAML output, actionable errors.
+Exit codes: `0` = clean, `1` = findings/work remaining, `2` = usage/environment error.
+
+| Command | Purpose | When |
+|---|---|---|
+| `doctor --langs <src>,<tgt> [--install]` | Check/install tree-sitter deps for the pair | P0 bootstrap, before P3 |
+| `index --source <dir> --lang <src> [--files-from asset-inventory.yaml] --output ast-index.yaml` | Stage 1: extract machine truth | P3 entry |
+| `verify --index ast-index.yaml --registry ipo-registry.yaml [--strict-literals]` | Mechanical PGR-3-A/G (+literal coverage) checks | inside PGR-3, any time during P3 |
+| `skeleton --index ast-index.yaml --target-dir <dir> --map-output skeleton-map.yaml` | Stage 2: emit drafts + mapping | P4 entry |
+| `todos --target-dir <dir> [--verbose]` | Count remaining `TODO(migrate)` markers | PGR-4-F gate, P4 progress |
+
+### Installation (tree-sitter)
+
+The skill does NOT vendor compiled grammars (platform-specific binaries). Grammars are
+installed on demand as precompiled wheels — no C compiler needed:
+
+```bash
+python3 skills/lang-migration/scripts/ast_bridge.py doctor --langs python,go --install
+# equivalent to: pip install tree-sitter pyyaml tree-sitter-python tree-sitter-go
+```
+
+Run `doctor` once at P0 bootstrap. If pip is blocked by network policy, `doctor` exits 1
+with the exact command for the human to run; if installation is impossible, fall back to
+the manual protocols and record the decision.
+
+### How each environment calls the toolchain
+
+| Environment | Invocation |
+|---|---|
+| Claude Code / Codex CLI / OpenCode | Run the commands above directly via the shell tool |
+| Cursor (agent mode with terminal) | Run directly; treat as full_mode |
+| Cursor / Copilot (edit-only) | Print the exact commands and ask the human to run them; parse the YAML outputs they paste/commit |
 
 ---
 
@@ -46,71 +85,62 @@ this skill exists to prevent.
 
 ## Stage 1: AST Index (P3 Pre-Pass)
 
-### Step 1.1: Write the extraction script
-
-The AI writes a project-specific script (Python with `tree-sitter` bindings, or Node.js
-with `tree-sitter` npm packages) at `migration_workspace/scripts/ast_extract.<py|js>`.
-
-Grammar packages for supported source languages:
-
-| Source language | Python binding | Node package |
-|---|---|---|
-| Python | `tree-sitter-python` | `tree-sitter-python` |
-| Go | `tree-sitter-go` | `tree-sitter-go` |
-| Rust | `tree-sitter-rust` | `tree-sitter-rust` |
-| TypeScript/JS | `tree-sitter-typescript` / `tree-sitter-javascript` | same |
-| C | `tree-sitter-c` | `tree-sitter-c` |
-| C++ | `tree-sitter-cpp` | `tree-sitter-cpp` |
-| Zig | `tree-sitter-zig` | `tree-sitter-zig` |
-
-The script must extract, for every function/method in every `translate`-strategy file:
-
-| Field | Source AST nodes (Python grammar example) |
-|---|---|
-| `id` | `<file_stem>::<class>.<name>` or `<file_stem>::<name>` |
-| `file`, `start_line`, `end_line` | `function_definition` node range |
-| `signature` | `parameters` node text + return annotation |
-| `parent_class` | enclosing `class_definition` name (empty for free functions) |
-| `branch_count` | count of `if_statement`, `elif_clause`, `else_clause`, `for_statement`, `while_statement`, `try_statement`, `except_clause`, `match_statement`, `case_clause` nodes in body |
-| `call_sites` | all `call` node function names in body (deduplicated, with line numbers) |
-| `literals` | all `integer`, `float`, `string` nodes in body with line numbers (excluding docstring) |
-| `comments` | all `comment` nodes + docstring with line numbers and text |
-| `decorators` | decorator names (affect translation strategy) |
-
-### Step 1.2: Validate the script before trusting it
-
-**⛔ A buggy extraction script poisons everything downstream.** Before running on the
-full project:
-
-```
-AST SCRIPT VALIDATION:
-  validation_file: "<one source file, manually chosen, ≥3 functions>"
-  For 2 functions in that file:
-    manual_branch_count:  <counted by reading the source>
-    script_branch_count:  <from script output>
-    manual_call_sites:    [<read from source>]
-    script_call_sites:    [<from script output>]
-    match: YES / NO
-  If NO: fix the script, re-validate. Do not run on full project until 2/2 match.
-```
-
-This validation block must appear in the AI's response.
-
-### Step 1.3: Run and generate ast-index.yaml
+### Step 1.1: Run the shipped extractor
 
 ```bash
-python migration_workspace/scripts/ast_extract.py \
+python3 skills/lang-migration/scripts/ast_bridge.py index \
   --source <source_dir> \
+  --lang <source_lang> \
   --files-from migration_workspace/asset-inventory.yaml \
   --output migration_workspace/ast-index.yaml
 ```
 
+The index contains, for every function/method in every `translate`-strategy file:
+`id`, `file`, `start_line`/`end_line`, `signature`, `parent_class`, `branch_count`,
+`call_sites` (with lines), `literals` (with lines, docstrings excluded), `comments`
+(docstring flagged), `decorators`. Full schema: `references/schemas.md`.
+
+Language support tiers (run `doctor` to confirm):
+- **full** (index + skeleton source): python, go
+- **index** (index only): rust, javascript, typescript, c, cpp
+- anything else → toolchain reports unsupported → use the Fallback section
+
+### Step 1.2: Spot-validate the output
+
+The toolchain is shipped and tested, but grammars evolve and projects hit edge cases.
+Before trusting the full index:
+
+```
+AST INDEX VALIDATION:
+  validation_file: "<one source file, manually chosen, ≥3 functions>"
+  For 2 functions in that file:
+    manual_branch_count:  <counted by reading the source>
+    index_branch_count:   <from ast-index.yaml>
+    manual_call_sites:    [<read from source>]
+    index_call_sites:     [<from ast-index.yaml>]
+    match: YES / NO
+  If NO: report the discrepancy as a toolchain bug; analyze the affected
+  construct class manually; do not silently trust either count.
+```
+
+This validation block must appear in the AI's response. Also check
+`meta.parse_failures` — any file listed there must be analyzed manually.
+
 `ast-index.yaml` is a **derived artifact** — regenerable at any time from source. It is
 not one of the five persistence files; never hand-edit it. If source changes, regenerate.
 
-### Step 1.4: Integration with P3
+### Step 1.3: Integration with P3
 
-Once `ast-index.yaml` exists:
+Once `ast-index.yaml` exists, the mechanical checks become one command, runnable at any
+point during P3 and mandatory inside PGR-3:
+
+```bash
+python3 skills/lang-migration/scripts/ast_bridge.py verify \
+  --index migration_workspace/ast-index.yaml \
+  --registry migration_workspace/ipo-registry.yaml \
+  --strict-literals
+# exit 0 = clean; exit 1 = findings printed in PGR format (PGR-3-A / PGR-3-G / PGR-3-C*)
+```
 
 1. **Execution Order**: the topological sort uses `call_sites` from the index — the
    shallow-grep Pre-Step in `phase-3-ipo-analysis.md` is replaced by the index.
@@ -132,12 +162,21 @@ Once `ast-index.yaml` exists:
 
 ## Stage 2: AST Skeleton Transform (P4 Bootstrap)
 
-### Step 2.1: Write the transform script
+### Step 2.1: Run the shipped skeleton generator
 
-The AI writes `migration_workspace/scripts/ast_transform.<py|js>`: walks the source AST
-and emits one draft target-language file per source file.
+```bash
+python3 skills/lang-migration/scripts/ast_bridge.py skeleton \
+  --index migration_workspace/ast-index.yaml \
+  --source-lang python --target-lang go \
+  --target-dir <target_dir> \
+  --map-output migration_workspace/skeleton-map.yaml
+```
 
-**What the script generates per function:**
+The toolchain ships skeleton generation for the **python→go** pair (the validated pair).
+For other pairs it exits with code 2 and a message — use the Fallback section or
+translate manually per phase-4.
+
+**What the generator emits per function:**
 
 1. **Signature**: mapped via the lang-pair core type table ONLY (e.g., `str → string`,
    `list[T] → []T` for Python→Go). Types not in the core table → emit the target
@@ -160,9 +199,11 @@ and emits one draft target-language file per source file.
    // Generated from <source_file> by ast_transform at <timestamp>.
    ```
 
-**What the script must NOT generate** (⛔ guardrails):
+**What the generator must NOT emit** (⛔ guardrails — these are built into the shipped
+toolchain and apply equally to any fallback implementation):
 
-- No error-model conversion (no guessing which calls return `(T, error)`)
+- No error-model conversion (Python `try` blocks become a single TODO block — converting
+  to `(T, error)` returns is LLM work)
 - No ecosystem API calls (no `numpy.sum → gonum` guesses — emit TODO instead)
 - No removal or merging of branches, even "obviously dead" ones
 - No `translation_status` changes in any YAML
@@ -170,9 +211,11 @@ and emits one draft target-language file per source file.
 A draft that fails to compile is **expected and acceptable**. The draft is scaffolding,
 not a translation.
 
-### Step 2.2: Record the mapping in ipo-registry.yaml
+### Step 2.2: Merge skeleton-map.yaml into ipo-registry.yaml
 
-For each function the transform emits, add an `ast_bridge` block to its IPO entry:
+The generator writes `migration_workspace/skeleton-map.yaml` — one entry per function
+with `skeleton_file`, `skeleton_lines`, `todo_count_initial/remaining`. The AI merges
+each entry into the corresponding IPO entry as its `ast_bridge` block:
 
 ```yaml
 ast_bridge:
@@ -184,8 +227,12 @@ ast_bridge:
 ```
 
 This gives the next LLM round (or next session) an exact work queue:
-`grep -rn "TODO(migrate)" <target_dir>` lists every unfinished statement with its
-source file:line provenance.
+
+```bash
+python3 skills/lang-migration/scripts/ast_bridge.py todos --target-dir <target_dir> --verbose
+```
+
+lists every unfinished statement with its source file:line provenance.
 
 ### Step 2.3: P4 becomes "fill the TODOs per IPO contract"
 
@@ -211,7 +258,8 @@ ecosystem compensations the raw text doesn't show.
 P4 cannot exit while any `TODO(migrate)` marker remains:
 
 ```bash
-grep -rn "TODO(migrate)" <target_dir> | wc -l   # must be 0
+python3 skills/lang-migration/scripts/ast_bridge.py todos --target-dir <target_dir>
+# exit 0 = zero markers (gate passes); exit 1 = markers remain (listed per file)
 ```
 
 This is enforced by PGR-4-F (see `phase-gate-review.md`). Markers must be *resolved*,
@@ -220,14 +268,33 @@ corresponding code is task fraud (detectable: the IPO step has no target_lines c
 
 ---
 
+## Fallback: Unsupported Language or Pair
+
+When `doctor` reports a language as unsupported, or `skeleton` rejects the pair:
+
+1. **Index fallback**: write a project-specific extraction script that produces YAML
+   matching the `ast-index.yaml` schema in `references/schemas.md` exactly (so `verify`
+   still works against it). Validate it with the AST INDEX VALIDATION block on 2
+   functions before a full run — for a hand-written script this validation is mandatory,
+   not optional.
+2. **Skeleton fallback**: either translate manually per phase-4 (always safe), or write
+   a transform honoring every ⛔ guardrail above and emitting the same `TODO(migrate)`
+   marker format (so `todos` and PGR-4-F still work).
+3. Prefer extending `scripts/ast_bridge.py` (add a language config block to `CONFIGS`)
+   over writing a separate script — then propose the config upstream as a skill
+   improvement.
+
+---
+
 ## Failure Modes and Responses
 
 | Failure | Response |
 |---|---|
-| No tree-sitter grammar for source language | Skip AST Bridge entirely; document in decisions_log; use manual protocols |
-| Grammar exists but script crashes on some files | Index what parses; list failed files in ast-index.yaml `parse_failures`; analyze those manually |
-| Script branch_count disagrees with manual count during validation | Trust neither — re-read grammar node types; common cause: `elif` chains counted as nested vs flat |
-| Transform produces garbage for a construct (e.g., Python decorators) | Narrow the transform: emit whole-function TODO for that construct class; never ship half-mechanical output |
+| `doctor` reports no grammar for source language | Use the Fallback section, or skip AST Bridge; document in decisions_log |
+| pip install blocked by network policy | `doctor` prints the exact command for the human; if impossible, manual protocols |
+| Grammar exists but some files fail to parse | Index what parses; failed files listed in `meta.parse_failures`; analyze those manually |
+| Index branch_count disagrees with manual count during validation | Trust neither — report as toolchain bug; analyze that construct class manually |
+| Skeleton output is garbage for a construct (e.g., decorators) | The construct arrives as a TODO marker anyway — resolve it manually per the IPO entry |
 | Source changes mid-migration | Regenerate ast-index.yaml; diff against old; re-open IPO entries for changed functions |
 
 ---

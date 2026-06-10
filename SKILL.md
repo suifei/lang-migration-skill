@@ -90,8 +90,10 @@ IF bash tool is available AND can write files → full_mode (Claude Code / OpenC
 IF only file editing available → editor_mode (Cursor / Copilot)
 ```
 
-In **full_mode**: use bash scripts for scanning, run `scan_assets.py` directly.
-In **editor_mode**: generate file lists manually by reading directory structure; instruct user to run scripts manually if needed.
+In **full_mode**: use bash scripts for scanning, run `scan_assets.py` directly; run the
+AST Bridge toolchain `scripts/ast_bridge.py` (doctor/index/verify/skeleton/todos) per
+`references/ast-bridge.md`.
+In **editor_mode**: generate file lists manually by reading directory structure; instruct user to run scripts manually if needed. If the editor agent CAN execute terminal commands (e.g., Cursor agent mode), treat it as full_mode.
 
 **Workspace location**: Always at the project root, in a directory called `migration_workspace/`.
 
@@ -105,8 +107,8 @@ In **editor_mode**: generate file lists manually by reading directory structure;
     ├── ecosystem-map.yaml
     ├── ipo-registry.yaml
     ├── retrospective-checklist.yaml
-    ├── ast-index.yaml            ← derived (full_mode): machine truth from tree-sitter; regenerable
-    └── scripts/                  ← project-specific AST scripts (ast_extract, ast_transform)
+    ├── ast-index.yaml            ← derived (full_mode): machine truth from scripts/ast_bridge.py
+    └── skeleton-map.yaml         ← derived (full_mode): Stage 2 skeleton↔IPO mapping
 ```
 
 ---
